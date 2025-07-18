@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>⚡ SolarMap - Análise de Potencial Solar ⚡</title>
+
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+    <!-- CSS Customizado -->
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <!-- Container principal -->
+    <div id="main-dashboard">
+        <!-- Header com vídeo de fundo -->
+        <div class="header-container">
+            <!-- Vídeo de fundo -->
+            <video autoplay loop muted class="background-video">
+                <source src="assets/video.mp4" type="video/mp4">
+            </video>
+
+            <!-- Overlay -->
+            <div class="header-overlay"></div>
+
+            <!-- Conteúdo do header -->
+            <div class="header-content">
+                <h1 class="main-title">⚡ SolarMap - Análise de Potencial Solar ⚡</h1>
+                <p class="main-subtitle">
+                    Plataforma inteligente para identificação de oportunidades em energia solar fotovoltaica com base em análise geoespacial e dados técnicos.
+                </p>
+            </div>
+        </div>
+
+        <!-- Cards de resumo dinâmicos -->
+        <div class="summary-cards">
+            <div class="summary-card">
+                <h4>📊 Total de Imóveis</h4>
+                <p id="total-imoveis-display">Carregando...</p>
+            </div>
+            <div class="summary-card">
+                <h4>⚡ Produção Total (kW)</h4>
+                <p id="producao-total-display">Carregando...</p>
+            </div>
+            <div class="summary-card">
+                <h4>📈 Média por Imóvel (kW)</h4>
+                <p id="media-imovel-display">Carregando...</p>
+            </div>
+        </div>
+
+        <!-- Filtros -->
+        <div class="filter-container">
+            <h3>🔍 Filtros</h3>
+            <div class="filter-grid">
+                <div class="filter-group">
+                    <label for="bairro-select">Bairros:</label>
+                    <select id="bairro-select">
+                        <option value="">Carregando...</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label for="info-select">Informação:</label>
+                    <select id="info-select">
+                        <option value="capacidade_por_m2">Capacidade por m²</option>
+                        <option value="producao_telhado">Produção do Telhado</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>Valores:</label>
+                    <div class="value-inputs">
+                        <input type="number" id="min-value" placeholder="Mín">
+                        <input type="number" id="max-value" placeholder="Máx">
+                        <button id="reset-button">🔄 Limpar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Mapa -->
+        <div class="map-container">
+            <div id="map"></div>
+        </div>
+
+        <!-- Gráficos lado a lado -->
+        <div class="charts-container">
+            <div class="chart-box">
+                <canvas id="grafico-producao"></canvas>
+            </div>
+            <div class="chart-box">
+                <canvas id="grafico-radiacao"></canvas>
+            </div>
+        </div>
+
+        <!-- Cards de informações - TÍTULOS CORRIGIDOS -->
+        <div class="info-section">
+            <h3 class="info-title">📋 Detalhes do Imóvel Selecionado</h3>
+
+            <!-- Grid de informações -->
+            <div class="info-grid">
+                <!-- Linha 1 -->
+                <div class="info-card">
+                    <h4>🏠 Área (m²)</h4>
+                    <p id="area-edificacao-display">0,00</p>
+                </div>
+                <div class="info-card">
+                    <h4>☀️ Rad. Máx (kW/m²)</h4>
+                    <p id="radiacao-max-display">0,00</p>
+                </div>
+                <div class="info-card">
+                    <h4>⚡ Capacidade de Produção de energia/m²</h4>
+                    <p id="capacidade-por-m2-display">0,00</p>
+                </div>
+                <div class="info-card">
+                    <h4>🔋 Prod. Total (kW)</h4>
+                    <p id="producao-telhado-display">0,00</p>
+                </div>
+                <!-- Linha 2 -->
+                <div class="info-card">
+                    <h4>🌤️ Prod. Ener Diária da placa em (kWh)</h4>
+                    <p id="capacidade-placas-dia-display">0,00</p>
+                </div>
+                <div class="info-card">
+                    <h4>📅 Prod. Ener Mensal em (kWh)</h4>
+                    <p id="capacidade-placas-mes-display">0,00</p>
+                </div>
+                <div class="info-card">
+                    <h4>🔲 Qtd. Placas</h4>
+                    <p id="quantidade-placas-display">0</p>
+                </div>
+                <div class="info-card">
+                    <h4>📊 Pot. Médio (kW.dia.m²)</h4>
+                    <p id="potencial-medio-dia-display">0,00</p>
+                </div>
+                <!-- Linha 3 -->
+                <div class="info-card">
+                    <h4>💰 Renda Total (R$)</h4>
+                    <p id="renda-total-display">0,00</p>
+                </div>
+                <div class="info-card">
+                    <h4>👤 Renda Per Capita (R$)</h4>
+                    <p id="renda-per-capita-display">0,00</p>
+                </div>
+                <div class="info-card">
+                    <h4>🏡 Renda domiciliar per capita</h4>
+                    <p id="renda-domiciliar-per-capita-display">0,00</p>
+                </div>
+                <div class="info-card invisible"></div>
+            </div>
+        </div>
+
+        <!-- Relatório síntese -->
+        <div class="relatorio-section">
+            <h3 id="relatorio-titulo">📊 Relatório Síntese do Imóvel</h3>
+            <div class="relatorio-content">
+                <p id="relatorio-conteudo">
+                    Selecione um imóvel no mapa para visualizar o relatório detalhado com todas as informações técnicas e de localização.
+                </p>
+            </div>
+
+            <!-- Botão PDF -->
+            <div class="pdf-section">
+                <button id="btn-gerar-pdf">
+                    <i class="fas fa-file-pdf"></i>
+                    📄 Gerar Relatório PDF
+                </button>
+
+                <!-- Instruções PDF -->
+                <div id="pdf-instructions" class="pdf-instructions" style="display: none;">
+                    <p>
+                        <strong>💡 Como gerar PDF:</strong><br>
+                        1. Pressione Ctrl+P (Windows) ou Cmd+P (Mac)<br>
+                        2. Selecione 'Salvar como PDF'<br>
+                        3. Ajuste as margens para 'Mínimas'<br>
+                        4. Clique em 'Salvar'
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Seção de contato -->
+        <div class="contact-section">
+            <h3>📞 Contato SolarMap</h3>
+            <div class="contact-grid">
+                <div class="contact-card">
+                    <i class="fab fa-instagram"></i>
+                    <h4>Instagram</h4>
+                    <a href="https://www.instagram.com/solarmap_/" target="_blank">@solarmap_</a>
+                </div>
+                <div class="contact-card">
+                    <i class="fab fa-whatsapp"></i>
+                    <h4>WhatsApp</h4>
+                    <a href="https://wa.me/5598986074695" target="_blank">+55 (98) 98607-4695</a>
+                </div>
+                <div class="contact-card">
+                    <i class="fab fa-whatsapp"></i>
+                    <h4>WhatsApp</h4>
+                    <a href="https://wa.me/5598983331225" target="_blank">+55 (98) 98333-1225</a>
+                </div>
+                <div class="contact-card">
+                    <img src="assets/logo.jpg" alt="SolarMap Logo" class="logo-img">
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <p>🌟 SolarMap - Tecnologia e Sustentabilidade em Energia Solar 🌟</p>
+        </div>
+    </div>
+
+    <!-- Scripts em ordem correta -->
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
+
+    <!-- Scripts customizados na ordem correta -->
+    <script src="js/dashboard.js"></script>
+    <script src="js/map.js"></script>
+    <script src="js/charts.js"></script>
+    <script src="js/filters.js"></script>
+
+    <!-- Inicialização única -->
+    <script>
+        // Remover inicializações duplicadas
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🚀 Inicializando SolarMap Dashboard CORRIGIDO...');
+
+            // Verificar se já foi inicializado
+            if (window.dashboardInitialized) {
+                console.log('⚠️ Dashboard já inicializado, pulando...');
+                return;
+            }
+
+            // Marcar como inicializado
+            window.dashboardInitialized = true;
+
+            // Inicializar
+            if (typeof initializeDashboard === 'function') {
+                initializeDashboard();
+            } else {
+                console.error('❌ Função initializeDashboard não encontrada');
+            }
+        });
+    </script>
+</body>
+</html>
