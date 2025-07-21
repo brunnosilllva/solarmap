@@ -81,10 +81,11 @@ function formatNumber(numero, decimais = 2) {
     if (numero === null || numero === undefined || isNaN(numero)) {
         return '0,00';
     }
-    return numero.toLocaleString('pt-BR', {
+    // CORRIGIDO: Usar Intl.NumberFormat para garantir pontos nos milhares
+    return new Intl.NumberFormat('pt-BR', {
         minimumFractionDigits: decimais,
         maximumFractionDigits: decimais
-    });
+    }).format(numero);
 }
 
 function getColorByValue(valor, minValue, maxValue) {
