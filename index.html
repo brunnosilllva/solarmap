@@ -219,6 +219,9 @@
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
 
+    <!-- ⭐ NOVO: SheetJS para ler arquivos Excel -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
     <!-- Scripts customizados na ordem correta -->
     <script src="js/dashboard.js"></script>
     <script src="js/map.js"></script>
@@ -229,7 +232,7 @@
     <script>
         // Remover inicializações duplicadas
         document.addEventListener('DOMContentLoaded', function() {
-            console.log('🚀 Inicializando SolarMap Dashboard CORRIGIDO...');
+            console.log('🚀 Inicializando SolarMap Dashboard EXCEL READER...');
 
             // Verificar se já foi inicializado
             if (window.dashboardInitialized) {
@@ -239,6 +242,13 @@
 
             // Marcar como inicializado
             window.dashboardInitialized = true;
+
+            // Verificar se SheetJS está disponível
+            if (typeof XLSX === 'undefined') {
+                console.error('❌ SheetJS não carregado! Verifique a conexão com internet.');
+                return;
+            }
+            console.log('✅ SheetJS disponível para leitura de Excel');
 
             // Inicializar
             if (typeof initializeDashboard === 'function') {
