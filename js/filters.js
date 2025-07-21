@@ -38,7 +38,7 @@ function populateBairroSelect() {
     // Adicionar opção padrão
     const defaultOption = document.createElement('option');
     defaultOption.value = '';
-    defaultOption.textContent = 'Selecione seu Bairro';
+    defaultOption.textContent = 'Todos os Bairros';
     select.appendChild(defaultOption);
 
     // Adicionar opções de bairros
