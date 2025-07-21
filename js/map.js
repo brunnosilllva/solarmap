@@ -1,6 +1,6 @@
 // ================================
 // MAPA INTERATIVO - SOLARMAP
-// VERSÃO COM LEGENDA EM GRADIENTE
+// VERSÃO COM AUTO-ZOOM E FORMATAÇÃO CORRIGIDA
 // ================================
 
 // Variáveis globais do mapa
@@ -17,10 +17,25 @@ const GRADIENT_COLORS = [
 ];
 
 // ================================
+// FUNÇÃO DE FORMATAÇÃO CORRIGIDA
+// ================================
+function formatNumberWithDots(numero, decimais = 2) {
+    if (numero === null || numero === undefined || isNaN(numero)) {
+        return '0,00';
+    }
+    
+    // Usar formatação brasileira com pontos nos milhares
+    return new Intl.NumberFormat('pt-BR', {
+        minimumFractionDigits: decimais,
+        maximumFractionDigits: decimais
+    }).format(numero);
+}
+
+// ================================
 // INICIALIZAÇÃO DO MAPA
 // ================================
 function initMap() {
-    console.log('🗺️ Inicializando mapa com legenda gradiente...');
+    console.log('🗺️ Inicializando mapa com auto-zoom...');
     
     try {
         // Criar mapa centrado em São Luís
@@ -100,10 +115,10 @@ function createMapLegend(currentField, minValue, maxValue) {
             "></div>
         `;
         
-        // Labels de valores
-        const formatMin = window.formatNumber ? window.formatNumber(minValue, 1) : minValue.toFixed(1);
-        const formatMax = window.formatNumber ? window.formatNumber(maxValue, 1) : maxValue.toFixed(1);
-        const formatMid = window.formatNumber ? window.formatNumber((minValue + maxValue) / 2, 1) : ((minValue + maxValue) / 2).toFixed(1);
+        // Labels de valores - CORRIGIDO: Com pontos nos milhares
+        const formatMin = formatNumberWithDots(minValue, 1);
+        const formatMax = formatNumberWithDots(maxValue, 1);
+        const formatMid = formatNumberWithDots((minValue + maxValue) / 2, 1);
         
         div.innerHTML += `
             <div style="
@@ -130,7 +145,7 @@ function createMapLegend(currentField, minValue, maxValue) {
                 color: #888;
                 text-align: center;
             ">
-                ${dadosFiltrados.length} imóveis exibidos
+                ${formatNumberWithDots(dadosFiltrados.length, 0)} imóveis exibidos
             </div>
         `;
         
@@ -187,10 +202,77 @@ function hexToRgb(hex) {
 }
 
 // ================================
+// NOVO: AUTO-ZOOM PARA BAIRRO SELECIONADO
+// ================================
+function autoZoomToBairro(bairroSelecionado) {
+    if (!bairroSelecionado || !window.dadosCompletos) {
+        // Se não há bairro selecionado, mostrar todos os dados
+        const dadosFiltrados = window.filtrarDados();
+        if (dadosFiltrados.length > 0) {
+            const bounds = calculateBounds(dadosFiltrados);
+            if (bounds) {
+                mapInstance.fitBounds(bounds, { padding: [20, 20] });
+                console.log('🎯 Zoom ajustado para mostrar todos os dados filtrados');
+            }
+        }
+        return;
+    }
+    
+    // Filtrar imóveis do bairro selecionado
+    const imoveisDoBairro = window.dadosCompletos.filter(item => 
+        item.properties.bairro === bairroSelecionado
+    );
+    
+    if (imoveisDoBairro.length === 0) {
+        console.warn(`⚠️ Nenhum imóvel encontrado no bairro: ${bairroSelecionado}`);
+        return;
+    }
+    
+    // Calcular bounds do bairro
+    const bounds = calculateBounds(imoveisDoBairro);
+    if (bounds) {
+        mapInstance.fitBounds(bounds, { 
+            padding: [30, 30],
+            maxZoom: 14  // Zoom máximo para não ficar muito próximo
+        });
+        console.log(`🎯 Zoom automático para bairro: ${bairroSelecionado} (${imoveisDoBairro.length} imóveis)`);
+    }
+}
+
+// ================================
+// CALCULAR BOUNDS DE UM CONJUNTO DE DADOS
+// ================================
+function calculateBounds(dados) {
+    if (!dados || dados.length === 0) return null;
+    
+    let minLat = Infinity, maxLat = -Infinity;
+    let minLng = Infinity, maxLng = -Infinity;
+    
+    dados.forEach(item => {
+        if (item.centroid && item.centroid.length >= 2) {
+            const lat = item.centroid[0];
+            const lng = item.centroid[1];
+            
+            minLat = Math.min(minLat, lat);
+            maxLat = Math.max(maxLat, lat);
+            minLng = Math.min(minLng, lng);
+            maxLng = Math.max(maxLng, lng);
+        }
+    });
+    
+    if (minLat === Infinity) return null;
+    
+    return [
+        [minLat, minLng],
+        [maxLat, maxLng]
+    ];
+}
+
+// ================================
 // ADICIONAR POLÍGONOS AO MAPA
 // ================================
 function addPolygonsToMap() {
-    console.log('📍 Adicionando polígonos com gradiente...');
+    console.log('📍 Adicionando polígonos com gradiente e auto-zoom...');
     
     if (!window.dadosCompletos || window.dadosCompletos.length === 0) {
         console.error('❌ Dados não disponíveis para o mapa');
@@ -224,7 +306,7 @@ function addPolygonsToMap() {
     const minValue = Math.min(...values);
     const maxValue = Math.max(...values);
 
-    console.log(`🎨 Gradiente por: ${currentField} (${minValue} - ${maxValue})`);
+    console.log(`🎨 Gradiente por: ${currentField} (${formatNumberWithDots(minValue)} - ${formatNumberWithDots(maxValue)})`);
     console.log(`📊 Exibindo ${dadosFiltrados.length} de ${window.dadosCompletos.length} polígonos`);
 
     // Criar legenda
@@ -306,34 +388,28 @@ function addPolygonsToMap() {
         console.warn(`⚠️ Erros encontrados: ${errorCount}`);
     }
 
-    // Ajustar zoom para mostrar todos os polígonos filtrados
-    if (polygonCount > 0) {
-        try {
-            mapInstance.fitBounds(layerGroup.getBounds(), { padding: [10, 10] });
-        } catch (error) {
-            console.warn('⚠️ Não foi possível ajustar zoom automaticamente');
-        }
-    }
+    // NOVO: Auto-zoom baseado no bairro selecionado
+    const bairroSelecionado = window.filtrosAtivos?.bairros?.[0];
+    autoZoomToBairro(bairroSelecionado);
 }
 
 // ================================
-// CRIAR CONTEÚDO DO POPUP
+// CRIAR CONTEÚDO DO POPUP - FORMATAÇÃO CORRIGIDA
 // ================================
 function createPopupContent(item) {
     const props = item.properties;
-    const formatNum = window.formatNumber || ((n) => n.toFixed(2));
     
     return `
         <div style="min-width: 250px;">
             <h4 style="margin: 0 0 10px 0; color: #1e3a5f;">
-                🏠 Imóvel ${item.id}
+                🏠 Imóvel ${formatNumberWithDots(item.id, 0)}
             </h4>
             <p><strong>Bairro:</strong> ${props.bairro}</p>
-            <p><strong>Área:</strong> ${formatNum(props.area_edificacao)} m²</p>
-            <p><strong>Produção:</strong> ${formatNum(props.producao_telhado)} kW</p>
-            <p><strong>Radiação:</strong> ${formatNum(props.radiacao_max)} kW/m²</p>
-            <p><strong>Placas:</strong> ${formatNum(props.quantidade_placas, 0)} unidades</p>
-            <p><strong>Renda Total:</strong> R$ ${formatNum(props.renda_domiciliar_per_capita)}</p>
+            <p><strong>Área:</strong> ${formatNumberWithDots(props.area_edificacao)} m²</p>
+            <p><strong>Produção:</strong> ${formatNumberWithDots(props.producao_telhado)} kW</p>
+            <p><strong>Radiação:</strong> ${formatNumberWithDots(props.radiacao_max)} kW/m²</p>
+            <p><strong>Placas:</strong> ${formatNumberWithDots(props.quantidade_placas, 0)} unidades</p>
+            <p><strong>Renda Total:</strong> R$ ${formatNumberWithDots(props.renda_domiciliar_per_capita)}</p>
         </div>
     `;
 }
@@ -411,10 +487,10 @@ function updateMapColors(field = 'capacidade_por_m2') {
 }
 
 // ================================
-// FILTRAR POLÍGONOS NO MAPA
+// FILTRAR POLÍGONOS NO MAPA - CORRIGIDO COM AUTO-ZOOM
 // ================================
 function filterMapPolygons() {
-    console.log('🔍 Aplicando filtros no mapa (gradiente)...');
+    console.log('🔍 Aplicando filtros no mapa (gradiente + auto-zoom)...');
     
     if (!window.filtrarDados) {
         console.warn('⚠️ Função filtrarDados não disponível');
@@ -424,7 +500,7 @@ function filterMapPolygons() {
     // Recriar o mapa completamente com os dados filtrados
     addPolygonsToMap();
     
-    console.log('✅ Filtros aplicados - mapa com gradiente atualizado');
+    console.log('✅ Filtros aplicados - mapa com gradiente e auto-zoom atualizado');
 }
 
 // ================================
@@ -440,5 +516,7 @@ window.filterMapPolygons = filterMapPolygons;
 window.createMapLegenda = createMapLegend;
 window.getGradientColor = getGradientColor;
 window.GRADIENT_COLORS = GRADIENT_COLORS;
+window.autoZoomToBairro = autoZoomToBairro;
+window.formatNumberWithDots = formatNumberWithDots;
 
-console.log('✅ MAP.JS GRADIENTE - Legenda em rampa de cor implementada!');
+console.log('✅ MAP.JS COM AUTO-ZOOM E FORMATAÇÃO CORRIGIDA!');
