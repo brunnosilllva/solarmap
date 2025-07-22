@@ -303,47 +303,85 @@ async function loadExcelData() {
 }
 
 // ================================
-// NOVA: Normalização que PRESERVA valores originais do Excel
+// NOVA: Normalização que PRESERVA valores originais do Excel MAS TRATA NÚMEROS
 // ================================
 function normalizeExcelDataPreservandoOriginal(row) {
     const normalized = {};
-    
-    // Mapeamento direto dos campos mais comuns
-    const camposMapeados = {
-        'OBJECTID': 'objectid',
-        'Bairros': 'bairro',
-        'Bairro': 'bairro'
-    };
     
     // Processar cada campo do Excel
     Object.entries(row).forEach(([campo, valor]) => {
         const campoLimpo = campo.toString().trim();
         
-        // Usar mapeamento direto ou criar chave normalizada
-        let chaveNormalizada = camposMapeados[campoLimpo];
-        if (!chaveNormalizada) {
-            chaveNormalizada = campoLimpo.toLowerCase()
-                .replace(/[àáâãäå]/g, 'a')
-                .replace(/[èéêë]/g, 'e')
-                .replace(/[ìíîï]/g, 'i')
-                .replace(/[òóôõöø]/g, 'o')
-                .replace(/[ùúûü]/g, 'u')
-                .replace(/[ç]/g, 'c')
-                .replace(/[ñ]/g, 'n')
-                .replace(/\s+/g, '_')
-                .replace(/[^\w]/g, '_')
-                .replace(/_+/g, '_')
-                .replace(/^_|_$/g, '');
-        }
+        // Criar chave normalizada
+        const chaveNormalizada = campoLimpo.toLowerCase()
+            .replace(/[àáâãäå]/g, 'a')
+            .replace(/[èéêë]/g, 'e')
+            .replace(/[ìíîï]/g, 'i')
+            .replace(/[òóôõöø]/g, 'o')
+            .replace(/[ùúûü]/g, 'u')
+            .replace(/[ç]/g, 'c')
+            .replace(/[ñ]/g, 'n')
+            .replace(/\s+/g, '_')
+            .replace(/[^\w]/g, '_')
+            .replace(/_+/g, '_')
+            .replace(/^_|_$/g, '');
         
-        // PRESERVAR VALOR ORIGINAL - NÃO CONVERTER
+        // PRESERVAR valor original como string para exibição
         normalized[chaveNormalizada] = valor;
-        
-        // Também manter campo original para referência
         normalized[campoLimpo] = valor;
+        
+        // CRIAR versão numérica para cálculos do mapa
+        if (valor && typeof valor === 'string') {
+            const valorNumerico = converterParaNumero(valor);
+            if (!isNaN(valorNumerico)) {
+                normalized[chaveNormalizada + '_numerico'] = valorNumerico;
+            }
+        } else if (typeof valor === 'number') {
+            normalized[chaveNormalizada + '_numerico'] = valor;
+        }
     });
     
     return normalized;
+}
+
+// NOVA: Função para converter strings brasileiras em números
+function converterParaNumero(valor) {
+    if (typeof valor === 'number') {
+        return valor;
+    }
+    
+    if (typeof valor !== 'string') {
+        return 0;
+    }
+    
+    // Remover espaços e caracteres não numéricos (exceto . , -)
+    let limpo = valor.toString().trim();
+    
+    // Se tem pontos E vírgulas (formato brasileiro: 1.234,56)
+    if (limpo.includes('.') && limpo.includes(',')) {
+        // Remover pontos (separadores de milhar) e trocar vírgula por ponto
+        limpo = limpo.replace(/\./g, '').replace(',', '.');
+    }
+    // Se tem só vírgula (formato: 1234,56)
+    else if (limpo.includes(',') && !limpo.includes('.')) {
+        limpo = limpo.replace(',', '.');
+    }
+    // Se tem só pontos (pode ser milhar ou decimal)
+    else if (limpo.includes('.')) {
+        // Se tem mais de um ponto, são separadores de milhar
+        const pontos = (limpo.match(/\./g) || []).length;
+        if (pontos > 1) {
+            limpo = limpo.replace(/\./g, '');
+        }
+        // Se tem só um ponto e 3 dígitos depois, é separador de milhar
+        else if (limpo.match(/\.\d{3}$/)) {
+            limpo = limpo.replace('.', '');
+        }
+        // Senão, considera como decimal
+    }
+    
+    const numero = parseFloat(limpo);
+    return isNaN(numero) ? 0 : numero;
 }
 
 // ================================
@@ -489,10 +527,39 @@ function combinePropertiesPreservandoOriginal(geoItem, excelData, objectId) {
     combined.id = objectId;
     combined.objectid = objectId;
     
-    // Mapear campos específicos mantendo valores originais
+    // Mapear campos específicos mantendo valores originais E numéricos
     if (excelData['Bairros']) {
         combined.bairro = excelData['Bairros'];
     }
+    
+    // NOVO: Mapear campos específicos para o mapa com valores numéricos
+    const mapearCampoNumerico = (termosChave, nomeCampo) => {
+        for (const termo of termosChave) {
+            for (const [campo, valor] of Object.entries(excelData)) {
+                if (campo.toLowerCase().includes(termo.toLowerCase())) {
+                    // Valor original para exibição
+                    combined[nomeCampo] = valor;
+                    // Valor numérico para cálculos
+                    const valorNumerico = converterParaNumero(valor);
+                    combined[nomeCampo + '_numerico'] = valorNumerico;
+                    console.log(`✅ Mapeado ${nomeCampo}: "${valor}" → ${valorNumerico}`);
+                    return;
+                }
+            }
+        }
+        combined[nomeCampo] = '';
+        combined[nomeCampo + '_numerico'] = 0;
+    };
+    
+    // Mapear campos específicos
+    mapearCampoNumerico(['produção de energia kw do telhado'], 'producao_telhado');
+    mapearCampoNumerico(['capacidade de produção de energia em kw por m²', 'capacidade.*m²'], 'capacidade_por_m2');
+    mapearCampoNumerico(['área em metros quadrados'], 'area_edificacao');
+    mapearCampoNumerico(['quantidade de radiação máxima solar'], 'radiacao_max');
+    mapearCampoNumerico(['quantidade de placas fotovoltaicas'], 'quantidade_placas');
+    mapearCampoNumerico(['renda total'], 'renda_total');
+    mapearCampoNumerico(['renda per capita'], 'renda_per_capita');
+    mapearCampoNumerico(['renda domiciliar per capita'], 'renda_domiciliar_per_capita');
     
     return combined;
 }
@@ -598,6 +665,19 @@ function filtrarDados() {
                 return false;
             }
         }
+        
+        // CORRIGIDO: Usar valores numéricos para filtros
+        if (filtrosAtivos.info && (filtrosAtivos.minValue !== null || filtrosAtivos.maxValue !== null)) {
+            const valorNumerico = props[filtrosAtivos.info + '_numerico'] || 0;
+            
+            if (filtrosAtivos.minValue !== null && valorNumerico < filtrosAtivos.minValue) {
+                return false;
+            }
+            if (filtrosAtivos.maxValue !== null && valorNumerico > filtrosAtivos.maxValue) {
+                return false;
+            }
+        }
+        
         return true;
     });
 }
