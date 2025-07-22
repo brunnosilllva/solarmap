@@ -293,9 +293,9 @@ function addPolygonsToMap() {
     // Obter dados filtrados
     const dadosFiltrados = window.filtrarDados();
     
-    // Calcular min/max apenas dos dados filtrados
+    // Calcular min/max apenas dos dados filtrados USANDO VALORES NUMÉRICOS
     const values = dadosFiltrados
-        .map(item => item.properties[currentField] || 0)
+        .map(item => item.properties[currentField + '_numerico'] || 0)
         .filter(val => val > 0);
     
     if (values.length === 0) {
@@ -306,8 +306,13 @@ function addPolygonsToMap() {
     const minValue = Math.min(...values);
     const maxValue = Math.max(...values);
 
-    console.log(`🎨 Gradiente por: ${currentField} (${formatNumberWithDots(minValue)} - ${formatNumberWithDots(maxValue)})`);
+    console.log(`🎨 Gradiente por: ${currentField} (${minValue} - ${maxValue})`);
     console.log(`📊 Exibindo ${dadosFiltrados.length} de ${window.dadosCompletos.length} polígonos`);
+    console.log(`📊 Valores numéricos encontrados: ${values.length}`);
+    
+    // DEBUG: Mostrar alguns valores para verificar
+    console.log('🔍 Primeiros 5 valores numéricos:', values.slice(0, 5));
+    console.log('🔍 Últimos 5 valores numéricos:', values.slice(-5));
 
     // Criar legenda
     createMapLegend(currentField, minValue, maxValue);
@@ -326,9 +331,11 @@ function addPolygonsToMap() {
             // Converter coordenadas para formato Leaflet [lat, lng]
             const leafletCoords = item.coordinates.map(coord => [coord[0], coord[1]]);
             
-            // Valor para coloração com gradiente
-            const fieldValue = item.properties[currentField] || 0;
+            // Valor para coloração com gradiente - USAR VALOR NUMÉRICO
+            const fieldValue = item.properties[currentField + '_numerico'] || 0;
             const color = getGradientColor(fieldValue, minValue, maxValue);
+            
+            console.log(`🎨 Imóvel ${item.id}: valor original="${item.properties[currentField]}", numérico=${fieldValue}, cor=${color}`);
 
             // Criar polígono SEM BORDAS
             const polygon = L.polygon(leafletCoords, {
@@ -394,7 +401,7 @@ function addPolygonsToMap() {
 }
 
 // ================================
-// CRIAR CONTEÚDO DO POPUP - DADOS EXATOS DO EXCEL
+// CRIAR CONTEÚDO DO POPUP - DADOS EXATOS DO EXCEL COM FORMATAÇÃO CORRETA
 // ================================
 function createPopupContent(item) {
     if (!item.excelData) {
@@ -429,6 +436,12 @@ function createPopupContent(item) {
     const placas = buscarCampo(['quantidade de placas fotovoltaicas', 'placas']);
     const rendaTotal = buscarCampo(['renda domiciliar per capita', 'renda total']);
     
+    console.log(`🔍 Popup Imóvel ${item.id}:`);
+    console.log(`  Produção original: "${producao}"`);
+    console.log(`  Produção numérica: ${item.properties.producao_telhado_numerico}`);
+    console.log(`  Área original: "${area}"`);
+    console.log(`  Área numérica: ${item.properties.area_edificacao_numerico}`);
+    
     return `
         <div style="min-width: 280px;">
             <h4 style="margin: 0 0 10px 0; color: #1e3a5f;">
@@ -440,6 +453,7 @@ function createPopupContent(item) {
             <p><strong>Radiação:</strong> ${radiacao} kW/m²</p>
             <p><strong>Placas:</strong> ${placas} unidades</p>
             <p><strong>Renda Total:</strong> R$ ${rendaTotal}</p>
+            <p><small><em>Valor numérico produção: ${item.properties.producao_telhado_numerico || 0}</em></small></p>
         </div>
     `;
 }
