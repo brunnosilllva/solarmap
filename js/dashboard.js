@@ -75,45 +75,28 @@ const SIRGAS_2000_UTM_23S = {
 };
 
 // ================================
-// FUNÇÃO DE FORMATAÇÃO GLOBAL CORRIGIDA
+// FUNÇÃO DE FORMATAÇÃO GLOBAL CORRIGIDA - VERSÃO FINAL
 // ================================
 function formatNumber(numero, decimais = 2) {
     if (numero === null || numero === undefined || isNaN(numero)) {
-        return '0,00';
+        return decimais > 0 ? '0,00' : '0';
     }
     
-    // CORRIGIDO: Sempre mostrar números completos com ponto como separador de milhar
-    const numeroFormatado = new Intl.NumberFormat('pt-BR', {
-        minimumFractionDigits: decimais,
-        maximumFractionDigits: decimais,
-        useGrouping: true  // Força separador de milhares
-    }).format(numero);
+    const valor = parseFloat(numero);
+    if (isNaN(valor)) {
+        return decimais > 0 ? '0,00' : '0';
+    }
     
-    // CORRIGIDO: Trocar vírgula por ponto para separador de milhares
-    return numeroFormatado.replace(/\./g, '_TEMP_').replace(/,/g, '.').replace(/_TEMP_/g, ',');
+    // FORMATAÇÃO BRASILEIRA CORRETA: 1.234.567,89
+    return valor.toLocaleString('pt-BR', {
+        minimumFractionDigits: decimais,
+        maximumFractionDigits: decimais
+    });
 }
 
-// NOVA: Função específica para formatar como no Excel (sem abreviações)
+// FUNÇÃO ESPECÍFICA PARA MANTER COMO NO EXCEL
 function formatarComoExcel(valor, decimais = 2) {
-    if (valor === null || valor === undefined || valor === 0) {
-        return decimais > 0 ? '0,00' : '0';
-    }
-    
-    if (typeof valor === 'string' && isNaN(parseFloat(valor))) {
-        return valor; // Manter texto original
-    }
-    
-    const numero = parseFloat(valor);
-    if (isNaN(numero)) {
-        return decimais > 0 ? '0,00' : '0';
-    }
-    
-    // Formato brasileiro CORRETO: ponto para milhares, vírgula para decimais
-    return new Intl.NumberFormat('pt-BR', {
-        minimumFractionDigits: decimais,
-        maximumFractionDigits: decimais,
-        useGrouping: true
-    }).format(numero);
+    return formatNumber(valor, decimais);
 }
 
 function getColorByValue(valor, minValue, maxValue) {
