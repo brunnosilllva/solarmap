@@ -1,4 +1,12 @@
-<!DOCTYPE html>
+<!-- Instrução de uso -->
+        <div class="instruction-banner" style="
+            background: linear-gradient(135deg, #1e3a5f, #2c4a6b);
+            color: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
@@ -52,6 +60,22 @@
             </div>
         </div>
 
+        <!-- Instrução de uso -->
+        <div class="instruction-banner" style="
+            background: linear-gradient(135deg, #1e3a5f, #2c4a6b);
+            color: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            font-size: 16px;
+            font-weight: bold;
+            animation: fadeIn 1s ease-in;
+        ">
+            📍 Para iniciar a execução dos dados nesta plataforma, selecione um bairro de sua preferência e clique em um imóvel de sua escolha para carregar as informações no dashboard.
+        </div>
+
         <!-- Filtros -->
         <div class="filter-container">
             <h3>🔍 Filtros</h3>
@@ -59,7 +83,7 @@
                 <div class="filter-group">
                     <label for="bairro-select">Bairros:</label>
                     <select id="bairro-select">
-                        <option value="">Carregando...</option>
+                        <option value="">Selecione seu bairro</option>
                     </select>
                 </div>
                 <div class="filter-group">
@@ -145,7 +169,7 @@
                     <p id="renda-per-capita-display">0,00</p>
                 </div>
                 <div class="info-card">
-                    <h4>🏡 Renda domiciliar per capita</h4>
+                    <h4>🏡 Renda domiciliar per capita (R$)</h4>
                     <p id="renda-domiciliar-per-capita-display">0,00</p>
                 </div>
                 <div class="info-card invisible"></div>
