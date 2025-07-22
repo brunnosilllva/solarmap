@@ -115,10 +115,10 @@ function createMapLegend(currentField, minValue, maxValue) {
             "></div>
         `;
         
-        // Labels de valores - CORRIGIDO: Formato brasileiro correto
-        const formatMin = window.formatarComoExcel ? window.formatarComoExcel(minValue, 1) : minValue.toFixed(1);
-        const formatMax = window.formatarComoExcel ? window.formatarComoExcel(maxValue, 1) : maxValue.toFixed(1);
-        const formatMid = window.formatarComoExcel ? window.formatarComoExcel((minValue + maxValue) / 2, 1) : ((minValue + maxValue) / 2).toFixed(1);
+        // Labels de valores - FORMATAÇÃO CORRIGIDA
+        const formatMin = window.formatNumber ? window.formatNumber(minValue, 1) : minValue.toFixed(1);
+        const formatMax = window.formatNumber ? window.formatNumber(maxValue, 1) : maxValue.toFixed(1);
+        const formatMid = window.formatNumber ? window.formatNumber((minValue + maxValue) / 2, 1) : ((minValue + maxValue) / 2).toFixed(1);
         
         div.innerHTML += `
             <div style="
@@ -394,7 +394,7 @@ function addPolygonsToMap() {
 }
 
 // ================================
-// CRIAR CONTEÚDO DO POPUP - FORMATAÇÃO BRASILEIRA CORRETA
+// CRIAR CONTEÚDO DO POPUP - FORMATAÇÃO SIMPLES E CORRETA
 // ================================
 function createPopupContent(item) {
     const props = item.properties;
@@ -402,14 +402,14 @@ function createPopupContent(item) {
     return `
         <div style="min-width: 280px;">
             <h4 style="margin: 0 0 10px 0; color: #1e3a5f;">
-                🏠 Imóvel ${window.formatarComoExcel ? window.formatarComoExcel(item.id, 0) : item.id}
+                🏠 Imóvel ${window.formatNumber ? window.formatNumber(item.id, 0) : item.id}
             </h4>
             <p><strong>Bairro:</strong> ${props.bairro}</p>
-            <p><strong>Área:</strong> ${window.formatarComoExcel ? window.formatarComoExcel(props.area_edificacao, 2) : props.area_edificacao} m²</p>
-            <p><strong>Produção:</strong> ${window.formatarComoExcel ? window.formatarComoExcel(props.producao_telhado, 2) : props.producao_telhado} kW</p>
-            <p><strong>Radiação:</strong> ${window.formatarComoExcel ? window.formatarComoExcel(props.radiacao_max, 2) : props.radiacao_max} kW/m²</p>
-            <p><strong>Placas:</strong> ${window.formatarComoExcel ? window.formatarComoExcel(props.quantidade_placas, 0) : props.quantidade_placas} unidades</p>
-            <p><strong>Renda Total:</strong> R$ ${window.formatarComoExcel ? window.formatarComoExcel(props.renda_domiciliar_per_capita, 2) : props.renda_domiciliar_per_capita}</p>
+            <p><strong>Área:</strong> ${window.formatNumber ? window.formatNumber(props.area_edificacao, 2) : props.area_edificacao} m²</p>
+            <p><strong>Produção:</strong> ${window.formatNumber ? window.formatNumber(props.producao_telhado, 2) : props.producao_telhado} kW</p>
+            <p><strong>Radiação:</strong> ${window.formatNumber ? window.formatNumber(props.radiacao_max, 2) : props.radiacao_max} kW/m²</p>
+            <p><strong>Placas:</strong> ${window.formatNumber ? window.formatNumber(props.quantidade_placas, 0) : props.quantidade_placas} unidades</p>
+            <p><strong>Renda Total:</strong> R$ ${window.formatNumber ? window.formatNumber(props.renda_domiciliar_per_capita, 2) : props.renda_domiciliar_per_capita}</p>
         </div>
     `;
 }
