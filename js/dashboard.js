@@ -75,16 +75,44 @@ const SIRGAS_2000_UTM_23S = {
 };
 
 // ================================
-// FUNÇÕES UTILITÁRIAS
+// FUNÇÃO DE FORMATAÇÃO GLOBAL CORRIGIDA
 // ================================
 function formatNumber(numero, decimais = 2) {
     if (numero === null || numero === undefined || isNaN(numero)) {
         return '0,00';
     }
-    // CORRIGIDO: Usar Intl.NumberFormat para garantir pontos nos milhares
+    
+    // CORRIGIDO: Sempre mostrar números completos com ponto como separador de milhar
+    const numeroFormatado = new Intl.NumberFormat('pt-BR', {
+        minimumFractionDigits: decimais,
+        maximumFractionDigits: decimais,
+        useGrouping: true  // Força separador de milhares
+    }).format(numero);
+    
+    // CORRIGIDO: Trocar vírgula por ponto para separador de milhares
+    return numeroFormatado.replace(/\./g, '_TEMP_').replace(/,/g, '.').replace(/_TEMP_/g, ',');
+}
+
+// NOVA: Função específica para formatar como no Excel (sem abreviações)
+function formatarComoExcel(valor, decimais = 2) {
+    if (valor === null || valor === undefined || valor === 0) {
+        return decimais > 0 ? '0,00' : '0';
+    }
+    
+    if (typeof valor === 'string' && isNaN(parseFloat(valor))) {
+        return valor; // Manter texto original
+    }
+    
+    const numero = parseFloat(valor);
+    if (isNaN(numero)) {
+        return decimais > 0 ? '0,00' : '0';
+    }
+    
+    // Formato brasileiro CORRETO: ponto para milhares, vírgula para decimais
     return new Intl.NumberFormat('pt-BR', {
         minimumFractionDigits: decimais,
-        maximumFractionDigits: decimais
+        maximumFractionDigits: decimais,
+        useGrouping: true
     }).format(numero);
 }
 
@@ -1135,6 +1163,7 @@ window.normalizeExcelData = normalizeExcelData;
 window.debugFieldMapping = debugFieldMapping;
 window.calcularEstatisticasPorBairro = calcularEstatisticasPorBairro;
 window.getMediaDoBairro = getMediaDoBairro;
+window.formatarComoExcel = formatarComoExcel;
 window.generateMonthlyAverages = generateMonthlyAverages;
 
 console.log('✅ DASHBOARD EXCEL READER COMPLETO CARREGADO!');
