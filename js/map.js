@@ -394,22 +394,52 @@ function addPolygonsToMap() {
 }
 
 // ================================
-// CRIAR CONTEÚDO DO POPUP - FORMATAÇÃO SIMPLES E CORRETA
+// CRIAR CONTEÚDO DO POPUP - DADOS EXATOS DO EXCEL
 // ================================
 function createPopupContent(item) {
-    const props = item.properties;
+    if (!item.excelData) {
+        return `
+            <div style="min-width: 280px;">
+                <h4 style="margin: 0 0 10px 0; color: #1e3a5f;">
+                    🏠 Imóvel ${item.id}
+                </h4>
+                <p>Dados não disponíveis</p>
+            </div>
+        `;
+    }
+    
+    const dados = item.excelData;
+    
+    // Buscar campos específicos EXATAMENTE como estão no Excel
+    const buscarCampo = (termosChave) => {
+        for (const termo of termosChave) {
+            for (const [campo, valor] of Object.entries(dados)) {
+                if (campo.toLowerCase().includes(termo.toLowerCase())) {
+                    return valor || '0';
+                }
+            }
+        }
+        return '0';
+    };
+    
+    const bairro = buscarCampo(['bairros', 'bairro']);
+    const area = buscarCampo(['área em metros quadrados', 'área', 'area']);
+    const producao = buscarCampo(['produção de energia kw do telhado', 'produção', 'producao']);
+    const radiacao = buscarCampo(['quantidade de radiação máxima solar', 'radiação', 'radiacao']);
+    const placas = buscarCampo(['quantidade de placas fotovoltaicas', 'placas']);
+    const rendaTotal = buscarCampo(['renda domiciliar per capita', 'renda total']);
     
     return `
         <div style="min-width: 280px;">
             <h4 style="margin: 0 0 10px 0; color: #1e3a5f;">
-                🏠 Imóvel ${window.formatNumber ? window.formatNumber(item.id, 0) : item.id}
+                🏠 Imóvel ${item.id}
             </h4>
-            <p><strong>Bairro:</strong> ${props.bairro}</p>
-            <p><strong>Área:</strong> ${window.formatNumber ? window.formatNumber(props.area_edificacao, 2) : props.area_edificacao} m²</p>
-            <p><strong>Produção:</strong> ${window.formatNumber ? window.formatNumber(props.producao_telhado, 2) : props.producao_telhado} kW</p>
-            <p><strong>Radiação:</strong> ${window.formatNumber ? window.formatNumber(props.radiacao_max, 2) : props.radiacao_max} kW/m²</p>
-            <p><strong>Placas:</strong> ${window.formatNumber ? window.formatNumber(props.quantidade_placas, 0) : props.quantidade_placas} unidades</p>
-            <p><strong>Renda Total:</strong> R$ ${window.formatNumber ? window.formatNumber(props.renda_domiciliar_per_capita, 2) : props.renda_domiciliar_per_capita}</p>
+            <p><strong>Bairro:</strong> ${bairro}</p>
+            <p><strong>Área:</strong> ${area} m²</p>
+            <p><strong>Produção:</strong> ${producao} kW</p>
+            <p><strong>Radiação:</strong> ${radiacao} kW/m²</p>
+            <p><strong>Placas:</strong> ${placas} unidades</p>
+            <p><strong>Renda Total:</strong> R$ ${rendaTotal}</p>
         </div>
     `;
 }
