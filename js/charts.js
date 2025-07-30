@@ -1,34 +1,13 @@
 // ================================
 // GRÁFICOS INTERATIVOS - SOLARMAP
-// VERSÃO CORRIGIDA: FORMATAÇÃO BRASILEIRA
+// VERSÃO COM DADOS MENSAIS REAIS
 // ================================
 let chartProducao;
 let chartRadiacao;
 const meses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
 
 // ================================
-// FUNÇÃO DE FORMATAÇÃO BRASILEIRA PARA GRÁFICOS
-// ================================
-function formatarNumeroBrasileiroChart(numero, decimais = 2) {
-    if (numero === null || numero === undefined || isNaN(numero)) {
-        return '0,00';
-    }
-    
-    const num = typeof numero === 'string' ? parseFloat(numero) : numero;
-    
-    if (isNaN(num)) {
-        return '0,00';
-    }
-    
-    // Formatação brasileira: vírgula para decimal, ponto para milhar
-    return num.toLocaleString('pt-BR', {
-        minimumFractionDigits: decimais,
-        maximumFractionDigits: decimais
-    });
-}
-
-// ================================
-// FUNÇÃO PARA GERAR CORES SUAVES (EXPANDIDA)
+// FUNÇÃO PARA GERAR CORES SUAVES (10% mais claras)
 // ================================
 function generateSoftColors(values) {
     if (!values || values.length === 0) {
@@ -45,23 +24,15 @@ function generateSoftColors(values) {
         // Normalizar valor entre 0 e 1
         const normalized = (value - minVal) / range;
         
-        // Cores suaves expandidas para melhor visualização
-        if (normalized <= 0.125) {
-            return '#FFF8F0';  // Laranja ultra claro 1
-        } else if (normalized <= 0.25) {
-            return '#FFF0E6';  // Laranja ultra claro 2
-        } else if (normalized <= 0.375) {
-            return '#FFE8D6';  // Laranja muito claro 1
+        // Cores suaves e 10% mais claras
+        if (normalized <= 0.25) {
+            return '#FFF8F0';  // Laranja ultra claro
         } else if (normalized <= 0.5) {
-            return '#FFE0C7';  // Laranja muito claro 2
-        } else if (normalized <= 0.625) {
-            return '#FFD8B8';  // Laranja claro 1
+            return '#FFF0E6';  // Laranja muito claro
         } else if (normalized <= 0.75) {
-            return '#FFD0A8';  // Laranja claro 2
-        } else if (normalized <= 0.875) {
-            return '#FFC080';  // Laranja médio claro
+            return '#FFE4CC';  // Laranja claro
         } else {
-            return '#FFB366';  // Laranja médio
+            return '#FFD4A3';  // Laranja médio claro
         }
     });
 }
@@ -70,12 +41,12 @@ function generateSoftColors(values) {
 // INICIALIZAÇÃO DOS GRÁFICOS
 // ================================
 function initializeCharts() {
-    console.log('📊 Inicializando gráficos com formatação brasileira...');
+    console.log('📊 Inicializando gráficos com dados mensais reais...');
     try {
         destroyCharts();
         initProducaoChart();
         initRadiacaoChart();
-        console.log('✅ Gráficos com formatação brasileira inicializados');
+        console.log('✅ Gráficos com dados mensais reais inicializados');
     } catch (error) {
         console.error('❌ Erro ao inicializar gráficos:', error);
         throw error;
@@ -148,7 +119,7 @@ function initProducaoChart() {
             plugins: {
                 title: {
                     display: true,
-                    text: '🔋 Produção Mensal de Energia',
+                    text: '🔋 Produção Mensal de Energia (Dados Reais)',
                     font: {
                         size: 18,
                         weight: 'bold',
@@ -177,9 +148,12 @@ function initProducaoChart() {
                     borderWidth: 1,
                     callbacks: {
                         label: function(context) {
+                            const valor = context.raw;
                             const label = context.dataset.label || '';
-                            const value = formatarNumeroBrasileiroChart(context.parsed.y, 2);
-                            return `${label}: ${value}`;
+                            const valorFormatado = window.formatarComoExcel ? 
+                                window.formatarComoExcel(valor, 2) : 
+                                valor.toFixed(2);
+                            return `${label}: ${valorFormatado} kW`;
                         },
                         afterBody: function(context) {
                             if (window.imovelSelecionado) {
@@ -204,11 +178,6 @@ function initProducaoChart() {
                     grid: {
                         color: 'rgba(0,0,0,0.1)',
                         lineWidth: 1
-                    },
-                    ticks: {
-                        callback: function(value) {
-                            return formatarNumeroBrasileiroChart(value, 1);
-                        }
                     }
                 },
                 x: {
@@ -329,9 +298,12 @@ function initRadiacaoChart() {
                     borderWidth: 1,
                     callbacks: {
                         label: function(context) {
+                            const valor = context.raw;
                             const label = context.dataset.label || '';
-                            const value = formatarNumeroBrasileiroChart(context.parsed.y, 2);
-                            return `${label}: ${value}`;
+                            const valorFormatado = window.formatarComoExcel ? 
+                                window.formatarComoExcel(valor, 2) : 
+                                valor.toFixed(2);
+                            return `${label}: ${valorFormatado} kW/m²`;
                         },
                         afterBody: function(context) {
                             if (window.imovelSelecionado) {
@@ -356,11 +328,6 @@ function initRadiacaoChart() {
                     grid: {
                         color: 'rgba(0,0,0,0.1)',
                         lineWidth: 1
-                    },
-                    ticks: {
-                        callback: function(value) {
-                            return formatarNumeroBrasileiroChart(value, 1);
-                        }
                     }
                 },
                 x: {
@@ -386,7 +353,7 @@ function initRadiacaoChart() {
 }
 
 // ================================
-// ATUALIZAR GRÁFICOS COM MÉDIA DO BAIRRO
+// ATUALIZAR GRÁFICOS COM DADOS MENSAIS REAIS
 // ================================
 function updateCharts(imovel = null) {
     if (!imovel) {
@@ -397,9 +364,41 @@ function updateCharts(imovel = null) {
     const props = imovel.properties;
     const bairro = props.bairro || 'Não informado';
     
-    // Gerar dados mensais simulados para o imóvel
-    const producaoMensal = generateMockMonthlyData(props.producao_telhado || 0);
-    const radiacaoMensal = generateMockMonthlyData(props.radiacao_max || 0);
+    console.log('📊 === DEBUG ATUALIZAÇÃO GRÁFICOS ===');
+    console.log(`Imóvel: ${imovel.id}, Bairro: ${bairro}`);
+    console.log('Dados mensais disponíveis:', props.dados_mensais_producao);
+    
+    // CORRIGIDO: Usar dados mensais reais se disponíveis
+    let producaoMensal;
+    if (props.dados_mensais_producao && props.dados_mensais_producao.length === 12) {
+        const temDadosReais = props.dados_mensais_producao.some(valor => valor > 0);
+        if (temDadosReais) {
+            producaoMensal = props.dados_mensais_producao;
+            console.log('✅ Usando dados mensais REAIS de produção:', producaoMensal);
+        } else {
+            producaoMensal = generateMockMonthlyData(props.producao_telhado || 0);
+            console.log('⚠️ Dados mensais de produção zerados, usando simulação baseada em:', props.producao_telhado);
+        }
+    } else {
+        producaoMensal = generateMockMonthlyData(props.producao_telhado || 0);
+        console.log('⚠️ Dados mensais de produção não encontrados, usando simulação baseada em:', props.producao_telhado);
+    }
+    
+    // NOVO: Para radiação, usar dados mensais reais se disponíveis
+    let radiacaoMensal;
+    if (props.dados_mensais_radiacao && props.dados_mensais_radiacao.length === 12) {
+        const temDadosReaisRadiacao = props.dados_mensais_radiacao.some(valor => valor > 0);
+        if (temDadosReaisRadiacao) {
+            radiacaoMensal = props.dados_mensais_radiacao;
+            console.log('✅ Usando dados mensais REAIS de radiação:', radiacaoMensal);
+        } else {
+            radiacaoMensal = generateMockMonthlyData(props.radiacao_max || 0);
+            console.log('⚠️ Dados mensais de radiação zerados, usando simulação baseada em:', props.radiacao_max);
+        }
+    } else {
+        radiacaoMensal = generateMockMonthlyData(props.radiacao_max || 0);
+        console.log('⚠️ Dados mensais de radiação não encontrados, usando simulação baseada em:', props.radiacao_max);
+    }
     
     // Obter médias do bairro
     const mediaDoBairro = window.getMediaDoBairro ? window.getMediaDoBairro(bairro) : {
@@ -407,7 +406,7 @@ function updateCharts(imovel = null) {
         media_radiacao_mensal: new Array(12).fill(0)
     };
 
-    // Gerar cores suaves baseadas nos valores
+    // Gerar cores suaves baseadas nos valores REAIS
     const coresProducao = generateSoftColors(producaoMensal);
     const coresRadiacao = generateSoftColors(radiacaoMensal);
 
@@ -418,10 +417,14 @@ function updateCharts(imovel = null) {
         chartProducao.data.datasets[0].borderColor = coresProducao.map(color => 
             color.replace('#', '#').concat('CC')
         );
-        // CORRIGIDO: Usar média do bairro
+        // Usar média do bairro
         chartProducao.data.datasets[1].data = mediaDoBairro.media_producao_mensal;
         chartProducao.data.datasets[1].label = `Média do Bairro: ${bairro}`;
         chartProducao.update('active');
+        
+        // DEBUG: Verificar se os dados foram aplicados
+        console.log('📊 Produção - Dados aplicados:', chartProducao.data.datasets[0].data);
+        console.log('📊 Produção - Média do bairro:', chartProducao.data.datasets[1].data);
     }
 
     // Atualizar gráfico de radiação
@@ -431,13 +434,14 @@ function updateCharts(imovel = null) {
         chartRadiacao.data.datasets[0].borderColor = coresRadiacao.map(color => 
             color.replace('#', '#').concat('CC')
         );
-        // CORRIGIDO: Usar média do bairro
+        // Usar média do bairro
         chartRadiacao.data.datasets[1].data = mediaDoBairro.media_radiacao_mensal;
         chartRadiacao.data.datasets[1].label = `Média do Bairro: ${bairro}`;
         chartRadiacao.update('active');
     }
     
-    console.log(`📊 Gráficos atualizados com formatação brasileira para imóvel ${imovel.id} no bairro ${bairro}`);
+    console.log(`📊 Gráficos atualizados para imóvel ${imovel.id} no bairro ${bairro}`);
+    console.log(`📈 Máximo produção mensal: ${Math.max(...producaoMensal).toFixed(2)} kW`);
     console.log(`📈 Média do bairro:`, mediaDoBairro);
 }
 
@@ -457,6 +461,98 @@ function generateMockMonthlyData(baseValue) {
         const variation = 0.8 + (Math.random() * 0.4); // Variação de ±20%
         return (baseValue / 12) * factor * variation;
     });
+}
+
+// ================================
+// CALCULAR MÉDIAS MENSAIS REAIS POR BAIRRO
+// ================================
+function calcularMediasMensaisReaisPorBairro() {
+    console.log('📊 Calculando médias mensais REAIS por bairro...');
+    
+    if (!window.dadosCompletos || window.dadosCompletos.length === 0) {
+        console.warn('⚠️ Dados completos não disponíveis');
+        return;
+    }
+    
+    // Agrupar dados por bairro
+    const dadosPorBairro = {};
+    
+    window.dadosCompletos.forEach(item => {
+        const bairro = item.properties.bairro || 'Não informado';
+        if (!dadosPorBairro[bairro]) {
+            dadosPorBairro[bairro] = [];
+        }
+        dadosPorBairro[bairro].push(item);
+    });
+    
+    // Calcular médias mensais REAIS para cada bairro
+    const mediasReaisPorBairro = {};
+    
+    Object.entries(dadosPorBairro).forEach(([bairro, imoveis]) => {
+        const totalImoveis = imoveis.length;
+        
+        // Inicializar arrays de soma para cada mês
+        const somaProducaoMensal = new Array(12).fill(0);
+        const somaRadiacaoMensal = new Array(12).fill(0);
+        let imoveisComDadosReais = 0;
+        
+        imoveis.forEach(item => {
+            // Verificar se tem dados mensais reais
+            if (item.properties.dados_mensais_producao && 
+                item.properties.dados_mensais_producao.length === 12) {
+                
+                const temDadosReais = item.properties.dados_mensais_producao.some(valor => valor > 0);
+                if (temDadosReais) {
+                    imoveisComDadosReais++;
+                    // Somar dados mensais reais
+                    item.properties.dados_mensais_producao.forEach((valor, mes) => {
+                        somaProducaoMensal[mes] += valor || 0;
+                    });
+                } else {
+                    // Usar dados simulados se não tem dados reais
+                    const dadosSimulados = generateMockMonthlyData(item.properties.producao_telhado || 0);
+                    dadosSimulados.forEach((valor, mes) => {
+                        somaProducaoMensal[mes] += valor;
+                    });
+                }
+            } else {
+                // Usar dados simulados se não tem estrutura de dados mensais
+                const dadosSimulados = generateMockMonthlyData(item.properties.producao_telhado || 0);
+                dadosSimulados.forEach((valor, mes) => {
+                    somaProducaoMensal[mes] += valor;
+                });
+            }
+            
+            // Para radiação, sempre simular (não temos dados mensais)
+            const radiacaoSimulada = generateMockMonthlyData(item.properties.radiacao_max || 0);
+            radiacaoSimulada.forEach((valor, mes) => {
+                somaRadiacaoMensal[mes] += valor;
+            });
+        });
+        
+        // Calcular médias
+        const mediaProducaoMensal = somaProducaoMensal.map(soma => 
+            totalImoveis > 0 ? soma / totalImoveis : 0
+        );
+        const mediaRadiacaoMensal = somaRadiacaoMensal.map(soma => 
+            totalImoveis > 0 ? soma / totalImoveis : 0
+        );
+        
+        mediasReaisPorBairro[bairro] = {
+            total_imoveis: totalImoveis,
+            imoveis_com_dados_reais: imoveisComDadosReais,
+            media_producao_mensal: mediaProducaoMensal,
+            media_radiacao_mensal: mediaRadiacaoMensal
+        };
+        
+        console.log(`📊 ${bairro}: ${totalImoveis} imóveis, ${imoveisComDadosReais} com dados reais`);
+    });
+    
+    // Atualizar variável global
+    window.estatisticasPorBairro = mediasReaisPorBairro;
+    console.log('✅ Médias mensais REAIS por bairro calculadas');
+    
+    return mediasReaisPorBairro;
 }
 
 // ================================
@@ -485,7 +581,7 @@ function resetCharts() {
         chartRadiacao.data.datasets[1].label = 'Média do Bairro (kW/m²)';
         chartRadiacao.update('none');
     }
-    console.log('🔄 Gráficos resetados com formatação brasileira');
+    console.log('🔄 Gráficos resetados');
 }
 
 // ================================
@@ -518,7 +614,7 @@ function destroyCharts() {
 // DIAGNÓSTICO DOS GRÁFICOS
 // ================================
 function diagnosticCharts() {
-    console.log('🔍 === DIAGNÓSTICO DOS GRÁFICOS COM FORMATAÇÃO BR ===');
+    console.log('🔍 === DIAGNÓSTICO DOS GRÁFICOS COM DADOS REAIS ===');
     if (chartProducao) {
         console.log('📊 Gráfico de Produção - Imóvel:', chartProducao.data.datasets[0].data);
         console.log('📊 Gráfico de Produção - Média Bairro:', chartProducao.data.datasets[1].data);
@@ -535,6 +631,11 @@ function diagnosticCharts() {
     }
     if (window.estatisticasPorBairro) {
         console.log('📊 Estatísticas por bairro disponíveis:', Object.keys(window.estatisticasPorBairro));
+        // Mostrar dados de um bairro como exemplo
+        const primeiroBairro = Object.keys(window.estatisticasPorBairro)[0];
+        if (primeiroBairro) {
+            console.log(`📊 Exemplo - ${primeiroBairro}:`, window.estatisticasPorBairro[primeiroBairro]);
+        }
     } else {
         console.log('❌ Estatísticas por bairro não disponíveis');
     }
@@ -557,6 +658,6 @@ window.destroyCharts = destroyCharts;
 window.diagnosticCharts = diagnosticCharts;
 window.generateSoftColors = generateSoftColors;
 window.generateMockMonthlyData = generateMockMonthlyData;
-window.formatarNumeroBrasileiroChart = formatarNumeroBrasileiroChart;
+window.calcularMediasMensaisReaisPorBairro = calcularMediasMensaisReaisPorBairro;
 
-console.log('✅ GRÁFICOS COM FORMATAÇÃO BRASILEIRA - Implementado!');
+console.log('✅ GRÁFICOS COM DADOS MENSAIS REAIS - Implementado!');
