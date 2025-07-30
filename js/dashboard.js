@@ -75,7 +75,7 @@ const SIRGAS_2000_UTM_23S = {
 };
 
 // ================================
-// FUNÇÃO DE FORMATAÇÃO EXATAMENTE COMO NO EXCEL
+// FUNÇÃO DE FORMATAÇÃO BRASILEIRA CORRETA
 // ================================
 function formatNumber(numero, decimais = 2) {
     if (numero === null || numero === undefined || numero === '' || isNaN(numero)) {
@@ -84,25 +84,61 @@ function formatNumber(numero, decimais = 2) {
     
     let valor = numero;
     
-    // Se for string, tentar converter mantendo formato original
+    // Se for string, tentar converter
     if (typeof numero === 'string') {
-        // Se já está no formato brasileiro, manter
-        if (numero.includes('.') && numero.includes(',')) {
-            return numero;
-        }
-        
-        // Tentar converter
-        valor = parseFloat(numero.replace(/\./g, '').replace(',', '.'));
+        valor = converterParaNumero(numero);
         if (isNaN(valor)) {
             return numero; // Retornar string original se não conseguir converter
         }
     }
     
-    // Formatação brasileira padrão
+    // FORMATAÇÃO BRASILEIRA CORRETA: 1.234.567,89
     return new Intl.NumberFormat('pt-BR', {
         minimumFractionDigits: decimais,
         maximumFractionDigits: decimais
     }).format(valor);
+}
+
+// NOVA: Função para converter strings brasileiras em números
+function converterParaNumero(valor) {
+    if (typeof valor === 'number') {
+        return valor;
+    }
+    
+    if (typeof valor !== 'string') {
+        return 0;
+    }
+    
+    // Remover espaços
+    let limpo = valor.toString().trim();
+    
+    // FORMATO BRASILEIRO: 1.234.567,89
+    if (limpo.includes('.') && limpo.includes(',')) {
+        // Pontos são separadores de milhar, vírgula é decimal
+        limpo = limpo.replace(/\./g, '').replace(',', '.');
+    }
+    // Se tem só vírgula: 1234,56 → 1234.56
+    else if (limpo.includes(',') && !limpo.includes('.')) {
+        limpo = limpo.replace(',', '.');
+    }
+    // Se tem só pontos, verificar se é milhar ou decimal
+    else if (limpo.includes('.')) {
+        const pontos = (limpo.match(/\./g) || []).length;
+        if (pontos > 1) {
+            // Múltiplos pontos = separadores de milhar
+            limpo = limpo.replace(/\./g, '');
+        } else {
+            // Um ponto pode ser milhar (7.028) ou decimal (7.28)
+            // Se tem 3 dígitos após o ponto, é milhar
+            if (limpo.match(/\.\d{3}$/)) {
+                limpo = limpo.replace('.', '');
+            }
+            // Senão, manter como decimal
+        }
+    }
+    
+    const numero = parseFloat(limpo);
+    return isNaN(numero) ? 0 : numero;
 }
 
 function showMessage(message) {
@@ -697,7 +733,7 @@ function selecionarImovel(imovelId) {
     }
 }
 
-// CARDS DE INFORMAÇÕES - USANDO DADOS EXATOS DO EXCEL
+// CARDS DE INFORMAÇÕES - FORMATAÇÃO BRASILEIRA CORRETA
 function updateInfoCards(imovel = null) {
     if (!imovel || !imovel.excelData) {
         // Limpar cards se não houver dados
@@ -754,30 +790,32 @@ function updateInfoCards(imovel = null) {
         renda_domiciliar: buscarCampo(['Renda domiciliar per capita', 'renda domiciliar'])
     };
     
-    // Aplicar valores EXATOS nos cards
+    // Aplicar valores com FORMATAÇÃO BRASILEIRA CORRETA
     const elementos = {
-        'area-edificacao-display': valores.area,
-        'radiacao-max-display': valores.radiacao,
-        'capacidade-por-m2-display': valores.capacidade,
-        'producao-telhado-display': valores.producao,
-        'capacidade-placas-dia-display': valores.placas_dia,
-        'capacidade-placas-mes-display': valores.placas_mes,
-        'quantidade-placas-display': valores.quantidade_placas,
-        'potencial-medio-dia-display': valores.potencial,
-        'renda-total-display': valores.renda_total,
-        'renda-per-capita-display': valores.renda_per_capita,
-        'renda-domiciliar-per-capita-display': valores.renda_domiciliar
+        'area-edificacao-display': valores.area ? formatNumber(valores.area, 2) : '0,00',
+        'radiacao-max-display': valores.radiacao ? formatNumber(valores.radiacao, 2) : '0,00',
+        'capacidade-por-m2-display': valores.capacidade ? formatNumber(valores.capacidade, 2) : '0,00',
+        'producao-telhado-display': valores.producao ? formatNumber(valores.producao, 2) : '0,00',
+        'capacidade-placas-dia-display': valores.placas_dia ? formatNumber(valores.placas_dia, 2) : '0,00',
+        'capacidade-placas-mes-display': valores.placas_mes ? formatNumber(valores.placas_mes, 2) : '0,00',
+        'quantidade-placas-display': valores.quantidade_placas ? formatNumber(valores.quantidade_placas, 0) : '0',
+        'potencial-medio-dia-display': valores.potencial ? formatNumber(valores.potencial, 2) : '0,00',
+        'renda-total-display': valores.renda_total ? formatNumber(valores.renda_total, 2) : '0,00',
+        'renda-per-capita-display': valores.renda_per_capita ? formatNumber(valores.renda_per_capita, 2) : '0,00',
+        'renda-domiciliar-per-capita-display': valores.renda_domiciliar ? formatNumber(valores.renda_domiciliar, 2) : '0,00'
     };
     
-    Object.entries(elementos).forEach(([id, valor]) => {
+    Object.entries(elementos).forEach(([id, valorFormatado]) => {
         const elemento = document.getElementById(id);
         if (elemento) {
-            // Usar valor EXATO do Excel - sem conversão
-            elemento.textContent = valor || '0,00';
+            elemento.textContent = valorFormatado;
         }
     });
     
-    console.log('✅ Cards atualizados com valores EXATOS do Excel');
+    console.log('✅ Cards atualizados com FORMATAÇÃO BRASILEIRA CORRETA');
+    console.log('📊 Exemplos de formatação:');
+    console.log(`  Área original: "${valores.area}" → Formatado: "${elementos['area-edificacao-display']}"`);
+    console.log(`  Produção original: "${valores.producao}" → Formatado: "${elementos['producao-telhado-display']}"`);
 }
 
 function updateRelatorio(imovel = null) {
