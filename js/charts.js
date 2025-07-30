@@ -1,9 +1,18 @@
 // ================================
 // GRÁFICOS INTERATIVOS - SOLARMAP
-// VERSÃO COM DADOS MENSAIS REAIS
+// VERSÃO COM DADOS MENSAIS REAIS - CORRIGIDA
 // ================================
-let chartProducao;
-let chartRadiacao;
+
+// Verificar se variáveis já existem antes de declarar
+if (typeof chartProducao !== 'undefined' && chartProducao) {
+    chartProducao.destroy();
+}
+if (typeof chartRadiacao !== 'undefined' && chartRadiacao) {
+    chartRadiacao.destroy();
+}
+
+let chartProducao = null;
+let chartRadiacao = null;
 const meses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
 
 // ================================
@@ -150,11 +159,11 @@ function initProducaoChart() {
                         label: function(context) {
                             const valor = context.raw;
                             const label = context.dataset.label || '';
-                            // FORMATAÇÃO BRASILEIRA CORRETA: 1.234,56
-                            const valorFormatado = new Intl.NumberFormat('pt-BR', {
-                                minimumFractionDigits: 2,
-                                maximumFractionDigits: 2
-                            }).format(valor);
+                            // FORMATAÇÃO BRASILEIRA MANUAL
+                            const valorFixo = parseFloat(valor).toFixed(2);
+                            const [parteInteira, parteDecimal] = valorFixo.split('.');
+                            const inteiraFormatada = parteInteira.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+                            const valorFormatado = inteiraFormatada + ',' + parteDecimal;
                             return `${label}: ${valorFormatado} kW`;
                         },
                         afterBody: function(context) {
@@ -302,11 +311,11 @@ function initRadiacaoChart() {
                         label: function(context) {
                             const valor = context.raw;
                             const label = context.dataset.label || '';
-                            // FORMATAÇÃO BRASILEIRA CORRETA: 1.234,56
-                            const valorFormatado = new Intl.NumberFormat('pt-BR', {
-                                minimumFractionDigits: 2,
-                                maximumFractionDigits: 2
-                            }).format(valor);
+                            // FORMATAÇÃO BRASILEIRA MANUAL
+                            const valorFixo = parseFloat(valor).toFixed(2);
+                            const [parteInteira, parteDecimal] = valorFixo.split('.');
+                            const inteiraFormatada = parteInteira.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+                            const valorFormatado = inteiraFormatada + ',' + parteDecimal;
                             return `${label}: ${valorFormatado} kW/m²`;
                         },
                         afterBody: function(context) {
