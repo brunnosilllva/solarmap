@@ -75,7 +75,7 @@ const SIRGAS_2000_UTM_23S = {
 };
 
 // ================================
-// FUNÇÃO DE FORMATAÇÃO BRASILEIRA CORRETA
+// FUNÇÃO DE FORMATAÇÃO BRASILEIRA MANUAL (GARANTIDA)
 // ================================
 function formatNumber(numero, decimais = 2) {
     if (numero === null || numero === undefined || numero === '' || isNaN(numero)) {
@@ -84,7 +84,7 @@ function formatNumber(numero, decimais = 2) {
     
     let valor = numero;
     
-    // Se for string, tentar converter
+    // Se for string, converter para número
     if (typeof numero === 'string') {
         valor = converterParaNumero(numero);
         if (isNaN(valor)) {
@@ -92,11 +92,29 @@ function formatNumber(numero, decimais = 2) {
         }
     }
     
-    // FORMATAÇÃO BRASILEIRA CORRETA: 1.234.567,89
-    return new Intl.NumberFormat('pt-BR', {
-        minimumFractionDigits: decimais,
-        maximumFractionDigits: decimais
-    }).format(valor);
+    // FORMATAÇÃO BRASILEIRA MANUAL
+    const valorFixo = parseFloat(valor).toFixed(decimais);
+    const [parteInteira, parteDecimal] = valorFixo.split('.');
+    
+    // Adicionar pontos a cada 3 dígitos da direita para a esquerda
+    const inteiraFormatada = parteInteira.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    
+    // Retornar no formato brasileiro: 1.234,56
+    if (decimais > 0) {
+        return inteiraFormatada + ',' + parteDecimal;
+    } else {
+        return inteiraFormatada;
+    }
+}
+
+// Função auxiliar para teste
+function testarFormatacao() {
+    console.log('🧪 === TESTE DE FORMATAÇÃO BRASILEIRA ===');
+    console.log('7028 →', formatNumber(7028, 2));           // Deve dar: 7.028,00
+    console.log('1234567 →', formatNumber(1234567, 2));     // Deve dar: 1.234.567,00  
+    console.log('848 →', formatNumber(848, 2));             // Deve dar: 848,00
+    console.log('7028.5 →', formatNumber(7028.5, 2));       // Deve dar: 7.028,50
+    console.log('0 →', formatNumber(0, 2));                 // Deve dar: 0,00
 }
 
 // NOVA: Função para converter strings brasileiras em números
@@ -952,6 +970,9 @@ async function initializeDashboard() {
         initializeFilters();
         initializeEvents();
         console.log('✅ Dashboard EXCEL REAL inicializado!');
+        
+        // TESTE DA FORMATAÇÃO BRASILEIRA
+        testarFormatacao();
         
         // TESTE DOS DADOS
         console.log('🔍 === TESTE DOS DADOS CARREGADOS ===');
