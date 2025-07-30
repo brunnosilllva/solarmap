@@ -115,10 +115,17 @@ function createMapLegend(currentField, minValue, maxValue) {
             "></div>
         `;
         
-        // Labels de valores - FORMATAÇÃO BRASILEIRA CORRETA
-        const formatMin = window.formatNumber ? window.formatNumber(minValue, 1) : minValue.toLocaleString('pt-BR', {minimumFractionDigits: 1});
-        const formatMax = window.formatNumber ? window.formatNumber(maxValue, 1) : maxValue.toLocaleString('pt-BR', {minimumFractionDigits: 1});
-        const formatMid = window.formatNumber ? window.formatNumber((minValue + maxValue) / 2, 1) : ((minValue + maxValue) / 2).toLocaleString('pt-BR', {minimumFractionDigits: 1});
+        // Labels de valores - FORMATAÇÃO BRASILEIRA MANUAL
+        const formatarBrasileiro = (valor, decimais = 1) => {
+            const valorFixo = parseFloat(valor).toFixed(decimais);
+            const [parteInteira, parteDecimal] = valorFixo.split('.');
+            const inteiraFormatada = parteInteira.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+            return decimais > 0 ? inteiraFormatada + ',' + parteDecimal : inteiraFormatada;
+        };
+        
+        const formatMin = formatarBrasileiro(minValue, 1);
+        const formatMax = formatarBrasileiro(maxValue, 1);
+        const formatMid = formatarBrasileiro((minValue + maxValue) / 2, 1);
         
         div.innerHTML += `
             <div style="
@@ -440,19 +447,22 @@ function createPopupContent(item) {
     console.log(`  Produção original: "${producao}"`);
     console.log(`  Produção numérica: ${item.properties.producao_telhado_numerico}`);
     
-    // FORMATAÇÃO BRASILEIRA CORRETA para popup
+    // FORMATAÇÃO BRASILEIRA MANUAL para popup
     const formatarParaPopup = (valor) => {
         if (!valor || valor === '0') return '0,00';
+        
+        // Converter para número se for string
+        let num = valor;
         if (typeof valor === 'string') {
-            // Se já está formatado brasileiro, manter
-            if (valor.includes('.') && valor.includes(',')) {
-                return valor;
-            }
-            // Se é número puro, formatar
-            const num = window.formatNumber ? window.formatNumber(valor, 2) : valor;
-            return num;
+            num = window.converterParaNumero ? window.converterParaNumero(valor) : parseFloat(valor);
+            if (isNaN(num)) return valor; // Se não conseguir converter, retornar original
         }
-        return window.formatNumber ? window.formatNumber(valor, 2) : valor.toLocaleString('pt-BR', {minimumFractionDigits: 2});
+        
+        // Formatação brasileira manual
+        const valorFixo = parseFloat(num).toFixed(2);
+        const [parteInteira, parteDecimal] = valorFixo.split('.');
+        const inteiraFormatada = parteInteira.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+        return inteiraFormatada + ',' + parteDecimal;
     };
     
     return `
@@ -464,7 +474,12 @@ function createPopupContent(item) {
             <p><strong>Área:</strong> ${formatarParaPopup(area)} m²</p>
             <p><strong>Produção:</strong> ${formatarParaPopup(producao)} kW</p>
             <p><strong>Radiação:</strong> ${formatarParaPopup(radiacao)} kW/m²</p>
-            <p><strong>Placas:</strong> ${window.formatNumber ? window.formatNumber(placas, 0) : placas} unidades</p>
+            <p><strong>Placas:</strong> ${(() => {
+                const num = window.converterParaNumero ? window.converterParaNumero(placas) : parseFloat(placas);
+                if (isNaN(num)) return placas;
+                const valorFixo = parseFloat(num).toFixed(0);
+                return valorFixo.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+            })()} unidades</p>
             <p><strong>Renda Total:</strong> R$ ${formatarParaPopup(rendaTotal)}</p>
         </div>
     `;
