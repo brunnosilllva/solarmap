@@ -1,8 +1,8 @@
 // ================================
 // DASHBOARD PRINCIPAL - SOLARMAP
-// VERSÃO EXCEL READER - Lê arquivos XLSX diretamente
+// VERSÃO QUE LÊ EXCEL EXATAMENTE COMO ESTÁ
 // ================================
-console.log('🚀 Dashboard SolarMap - VERSÃO EXCEL READER');
+console.log('🚀 Dashboard SolarMap - LEITURA EXATA DO EXCEL');
 
 // ================================
 // VARIÁVEIS GLOBAIS
@@ -39,8 +39,8 @@ const CORES = {
 
 // Escala de cores para o mapa
 const COLOR_SCALE = [
-    '#FFF5E6', '#FFE4CC', '#FFD4A3', '#FFC080',
-    '#FF9500', '#FF7F00', '#FF6500', '#FF4500'
+    '#DAA520', '#FF8C00', '#FF7F00', '#FF6500',  // Amarelo queimado → Laranja
+    '#FF4500', '#FF2500', '#FF0000', '#DC143C'   // Laranja → Vermelho vivo
 ];
 
 // ================================
@@ -75,26 +75,34 @@ const SIRGAS_2000_UTM_23S = {
 };
 
 // ================================
-// FUNÇÕES UTILITÁRIAS
+// FUNÇÃO DE FORMATAÇÃO EXATAMENTE COMO NO EXCEL
 // ================================
 function formatNumber(numero, decimais = 2) {
-    if (numero === null || numero === undefined || isNaN(numero)) {
-        return '0,00';
+    if (numero === null || numero === undefined || numero === '' || isNaN(numero)) {
+        return decimais > 0 ? '0,00' : '0';
     }
-    // CORRIGIDO: Usar Intl.NumberFormat para garantir pontos nos milhares
+    
+    let valor = numero;
+    
+    // Se for string, tentar converter mantendo formato original
+    if (typeof numero === 'string') {
+        // Se já está no formato brasileiro, manter
+        if (numero.includes('.') && numero.includes(',')) {
+            return numero;
+        }
+        
+        // Tentar converter
+        valor = parseFloat(numero.replace(/\./g, '').replace(',', '.'));
+        if (isNaN(valor)) {
+            return numero; // Retornar string original se não conseguir converter
+        }
+    }
+    
+    // Formatação brasileira padrão
     return new Intl.NumberFormat('pt-BR', {
         minimumFractionDigits: decimais,
         maximumFractionDigits: decimais
-    }).format(numero);
-}
-
-function getColorByValue(valor, minValue, maxValue) {
-    if (maxValue === minValue) {
-        return COLOR_SCALE[0];
-    }
-    const normalized = (valor - minValue) / (maxValue - minValue);
-    const index = Math.floor(normalized * (COLOR_SCALE.length - 1));
-    return COLOR_SCALE[Math.min(Math.max(index, 0), COLOR_SCALE.length - 1)];
+    }).format(valor);
 }
 
 function showMessage(message) {
@@ -205,12 +213,11 @@ async function loadGeoJSON() {
 }
 
 // ================================
-// NOVO: CARREGAMENTO DE DADOS EXCEL
+// NOVO: CARREGAMENTO DE DADOS EXCEL PRESERVANDO FORMATO ORIGINAL
 // ================================
 async function loadExcelData() {
-    console.log('📊 === CARREGANDO EXCEL (.xlsx) ===');
+    console.log('📊 === CARREGANDO EXCEL PRESERVANDO FORMATO ORIGINAL ===');
     try {
-        // Tentar carregar o arquivo Excel
         const response = await fetch('data/Dados_energia_solar.xlsx');
         if (!response.ok) {
             throw new Error(`❌ Arquivo Excel não encontrado! Status: ${response.status}`);
@@ -219,25 +226,27 @@ async function loadExcelData() {
         console.log('✅ Arquivo Excel encontrado, processando...');
         const arrayBuffer = await response.arrayBuffer();
         
-        // Usar SheetJS para ler o arquivo Excel
+        // Usar SheetJS com configurações para preservar formato original
         const workbook = XLSX.read(arrayBuffer, {
             type: 'array',
-            cellDates: true,
-            cellStyles: true,
-            cellFormulas: true
+            cellDates: false,      // Não converter datas automaticamente
+            cellStyles: true,      // Manter estilos
+            cellFormulas: false,   // Não processar fórmulas
+            raw: false,           // NÃO converter valores - manter como string
+            dateNF: 'dd/mm/yyyy'  // Formato de data brasileiro
         });
         
-        // Pegar a primeira planilha
         const firstSheetName = workbook.SheetNames[0];
         console.log(`📋 Processando planilha: ${firstSheetName}`);
         
         const worksheet = workbook.Sheets[firstSheetName];
         
-        // Converter para JSON com headers
+        // Converter para JSON mantendo formato original
         const jsonData = XLSX.utils.sheet_to_json(worksheet, {
             header: 1,
-            defval: null,
-            raw: false
+            defval: '',           // Valor padrão para células vazias
+            raw: false,          // IMPORTANTE: Manter formatação original
+            dateNF: 'dd/mm/yyyy'
         });
         
         if (jsonData.length === 0) {
@@ -246,28 +255,24 @@ async function loadExcelData() {
         
         // Primeira linha são os headers
         const headers = jsonData[0];
-        console.log(`📋 Headers encontrados (${headers.length}):`, headers.slice(0, 5), '...');
+        console.log(`📋 Headers encontrados (${headers.length}):`, headers.slice(0, 10), '...');
         
-        // Converter dados em objetos
+        // Converter dados em objetos PRESERVANDO FORMATO ORIGINAL
         const dataObjects = [];
         for (let i = 1; i < jsonData.length; i++) {
             const row = jsonData[i];
             const obj = {};
             
             headers.forEach((header, index) => {
-                if (header && header.trim()) {
-                    let value = row[index];
+                if (header && header.toString().trim()) {
+                    const valor = row[index];
                     
-                    // Limpar e converter valores
-                    if (typeof value === 'string') {
-                        value = value.trim();
-                        // Tentar converter números com vírgula
-                        if (value.match(/^\d+[,\.]\d+$/)) {
-                            value = parseFloat(value.replace(',', '.'));
-                        }
+                    // PRESERVAR VALOR EXATAMENTE COMO ESTÁ NO EXCEL
+                    if (valor !== null && valor !== undefined && valor !== '') {
+                        obj[header.toString().trim()] = valor; // Manter valor original
+                    } else {
+                        obj[header.toString().trim()] = '';
                     }
-                    
-                    obj[header.trim()] = value;
                 }
             });
             
@@ -278,50 +283,109 @@ async function loadExcelData() {
         
         console.log(`✅ Excel processado: ${dataObjects.length} registros`);
         
-        // DEBUG: Mostrar primeiro registro
+        // DEBUG: Mostrar primeiro registro com valores originais
         if (dataObjects.length > 0) {
-            console.log('🔍 Primeiro registro do Excel:');
-            console.log(dataObjects[0]);
-            debugFieldMapping(dataObjects[0]);
+            console.log('🔍 Primeiro registro do Excel (valores originais):');
+            const exemplo = dataObjects[0];
+            Object.entries(exemplo).slice(0, 10).forEach(([campo, valor]) => {
+                console.log(`  ${campo}: "${valor}" (tipo: ${typeof valor})`);
+            });
         }
         
-        // Normalizar dados
-        dadosExcel = dataObjects.map(row => normalizeExcelData(row));
+        // Normalizar dados PRESERVANDO valores originais
+        dadosExcel = dataObjects.map(row => normalizeExcelDataPreservandoOriginal(row));
         console.log(`✅ Dados normalizados: ${dadosExcel.length} registros`);
-        
-        // DEBUG: Primeiro registro normalizado
-        if (dadosExcel.length > 0) {
-            console.log('🔍 Primeiro registro normalizado:');
-            console.log(dadosExcel[0]);
-        }
         
     } catch (error) {
         console.error('❌ Erro ao carregar Excel:', error);
-        
-        // Fallback: tentar carregar JSON como backup
-        console.log('🔄 Tentando fallback para JSON...');
-        try {
-            await loadExcelDataJSON();
-        } catch (jsonError) {
-            console.error('❌ Fallback JSON também falhou:', jsonError);
-            throw new Error(`Não foi possível carregar dados Excel nem JSON: ${error.message}`);
-        }
+        throw error;
     }
-}
-
-// Fallback para JSON (caso Excel não funcione)
-async function loadExcelDataJSON() {
-    const response = await fetch('data/Dados_energia_solar.json');
-    if (!response.ok) {
-        throw new Error(`❌ Arquivo JSON não encontrado! Status: ${response.status}`);
-    }
-    const jsonData = await response.json();
-    console.log(`✅ JSON fallback carregado: ${jsonData.length} registros`);
-    dadosExcel = jsonData.map(row => normalizeExcelData(row));
 }
 
 // ================================
-// FUNÇÕES DE EXTRAÇÃO E NORMALIZAÇÃO
+// NOVA: Normalização que PRESERVA valores originais do Excel MAS TRATA NÚMEROS
+// ================================
+function normalizeExcelDataPreservandoOriginal(row) {
+    const normalized = {};
+    
+    // Processar cada campo do Excel
+    Object.entries(row).forEach(([campo, valor]) => {
+        const campoLimpo = campo.toString().trim();
+        
+        // Criar chave normalizada
+        const chaveNormalizada = campoLimpo.toLowerCase()
+            .replace(/[àáâãäå]/g, 'a')
+            .replace(/[èéêë]/g, 'e')
+            .replace(/[ìíîï]/g, 'i')
+            .replace(/[òóôõöø]/g, 'o')
+            .replace(/[ùúûü]/g, 'u')
+            .replace(/[ç]/g, 'c')
+            .replace(/[ñ]/g, 'n')
+            .replace(/\s+/g, '_')
+            .replace(/[^\w]/g, '_')
+            .replace(/_+/g, '_')
+            .replace(/^_|_$/g, '');
+        
+        // PRESERVAR valor original como string para exibição
+        normalized[chaveNormalizada] = valor;
+        normalized[campoLimpo] = valor;
+        
+        // CRIAR versão numérica para cálculos do mapa
+        if (valor && typeof valor === 'string') {
+            const valorNumerico = converterParaNumero(valor);
+            if (!isNaN(valorNumerico)) {
+                normalized[chaveNormalizada + '_numerico'] = valorNumerico;
+            }
+        } else if (typeof valor === 'number') {
+            normalized[chaveNormalizada + '_numerico'] = valor;
+        }
+    });
+    
+    return normalized;
+}
+
+// NOVA: Função para converter strings brasileiras em números
+function converterParaNumero(valor) {
+    if (typeof valor === 'number') {
+        return valor;
+    }
+    
+    if (typeof valor !== 'string') {
+        return 0;
+    }
+    
+    // Remover espaços e caracteres não numéricos (exceto . , -)
+    let limpo = valor.toString().trim();
+    
+    // Se tem pontos E vírgulas (formato brasileiro: 1.234,56)
+    if (limpo.includes('.') && limpo.includes(',')) {
+        // Remover pontos (separadores de milhar) e trocar vírgula por ponto
+        limpo = limpo.replace(/\./g, '').replace(',', '.');
+    }
+    // Se tem só vírgula (formato: 1234,56)
+    else if (limpo.includes(',') && !limpo.includes('.')) {
+        limpo = limpo.replace(',', '.');
+    }
+    // Se tem só pontos (pode ser milhar ou decimal)
+    else if (limpo.includes('.')) {
+        // Se tem mais de um ponto, são separadores de milhar
+        const pontos = (limpo.match(/\./g) || []).length;
+        if (pontos > 1) {
+            limpo = limpo.replace(/\./g, '');
+        }
+        // Se tem só um ponto e 3 dígitos depois, é separador de milhar
+        else if (limpo.match(/\.\d{3}$/)) {
+            limpo = limpo.replace('.', '');
+        }
+        // Senão, considera como decimal
+    }
+    
+    const numero = parseFloat(limpo);
+    return isNaN(numero) ? 0 : numero;
+}
+
+// ================================
+// FUNÇÕES DE EXTRAÇÃO DE DADOS
 // ================================
 function extractObjectIdFromGeoJSON(props, index) {
     const possibleFields = [
@@ -355,132 +419,11 @@ function extractObjectIdFromExcel(row) {
     return null;
 }
 
-// NOVA: Função para normalizar dados do Excel
-function normalizeExcelData(row) {
-    const fieldMapping = {
-        'OBJECTID': 'objectid',
-        'Bairros': 'bairro',
-        'Bairro': 'bairro',
-        'Área em metros quadrados da edificação': 'area_edificacao',
-        'Produção de energia kW do telhado do edifício': 'producao_telhado',
-        'Capacidade de Produção de energia em kW por m²': 'capacidade_por_m2',
-        'Quantidade de Radiação Máxima Solar nos mêses (kW.m²)': 'radiacao_max',
-        'Quantidade de Placas Fotovoltaicas capaz de gerar a energia gerada do imóvel': 'quantidade_placas',
-        'Capacidade de Produção de energia em Placas Fotovoltaicas em kW.h.dia': 'capacidade_placas_dia',
-        'Capacidade de Produção de energia em Placas Fotovoltaicas em kW.h.mês': 'capacidade_placas_mes',
-        'Potencial médio de geração FV em um dia (kW.dia.m²)': 'potencial_medio_dia',
-        'Renda Total': 'renda_total',
-        'Renda per capita': 'renda_per_capita',
-        'Renda domiciliar per capita': 'renda_domiciliar_per_capita'
-    };
-
-    const normalized = {};
-    
-    // Mapear campos conhecidos
-    Object.entries(row).forEach(([key, value]) => {
-        const normalizedKey = fieldMapping[key] || key.toLowerCase().replace(/\s+/g, '_');
-        
-        if (value !== null && value !== undefined && value !== '') {
-            if (typeof value === 'string' && value.length > 0) {
-                // Tentar converter strings numéricas
-                const cleanValue = value
-                    .toString()
-                    .replace(/\./g, '')
-                    .replace(',', '.')
-                    .replace(/[^\d.-]/g, '');
-                const numValue = parseFloat(cleanValue);
-                normalized[normalizedKey] = isNaN(numValue) ? value : numValue;
-            } else if (typeof value === 'number') {
-                normalized[normalizedKey] = value;
-            } else {
-                normalized[normalizedKey] = value;
-            }
-        } else {
-            normalized[normalizedKey] = 0;
-        }
-    });
-    
-    // Buscar campos alternativos para campos zerados
-    if (!normalized.radiacao_max || normalized.radiacao_max === 0) {
-        const radiacaoFields = Object.keys(row).filter(key => 
-            key.toLowerCase().includes('radiacao') || 
-            key.toLowerCase().includes('radiation') ||
-            key.toLowerCase().includes('solar')
-        );
-        for (const field of radiacaoFields) {
-            const value = parseFloat(String(row[field]).replace(',', '.'));
-            if (!isNaN(value) && value > 0) {
-                normalized.radiacao_max = value;
-                console.log(`✅ Usando ${field} para radiacao_max: ${value}`);
-                break;
-            }
-        }
-    }
-    
-    if (!normalized.quantidade_placas || normalized.quantidade_placas === 0) {
-        const placasFields = Object.keys(row).filter(key => 
-            key.toLowerCase().includes('placa') || 
-            key.toLowerCase().includes('panel') ||
-            key.toLowerCase().includes('quantidade')
-        );
-        for (const field of placasFields) {
-            const value = parseFloat(String(row[field]).replace(',', '.'));
-            if (!isNaN(value) && value > 0) {
-                normalized.quantidade_placas = value;
-                console.log(`✅ Usando ${field} para quantidade_placas: ${value}`);
-                break;
-            }
-        }
-    }
-    
-    return normalized;
-}
-
-function debugFieldMapping(sampleData) {
-    console.log('🔍 === DEBUG MAPEAMENTO DE CAMPOS ===');
-    if (!sampleData || typeof sampleData !== 'object') {
-        console.log('❌ Dados de amostra inválidos');
-        return;
-    }
-    
-    const camposEsperados = [
-        'Quantidade de Radiação Máxima Solar nos mêses (kW.m²)',
-        'Quantidade de Placas Fotovoltaicas capaz de gerar a energia gerada do imóvel',
-        'Capacidade de Produção de energia em kW por m²',
-        'Capacidade de Produção de energia em Placas Fotovoltaicas em kW.h.mês',
-        'Área em metros quadrados da edificação',
-        'Produção de energia kW do telhado do edifício'
-    ];
-    
-    console.log('📋 Campos disponíveis no Excel:', Object.keys(sampleData));
-    console.log('🎯 Procurando pelos campos esperados:');
-    
-    camposEsperados.forEach(campo => {
-        if (sampleData.hasOwnProperty(campo)) {
-            console.log(`✅ ENCONTRADO: "${campo}" = ${sampleData[campo]}`);
-        } else {
-            console.log(`❌ NÃO ENCONTRADO: "${campo}"`);
-            const similares = Object.keys(sampleData).filter(key => 
-                key.toLowerCase().includes(campo.toLowerCase().split(' ')[0]) ||
-                key.toLowerCase().includes('radiacao') ||
-                key.toLowerCase().includes('placas') ||
-                key.toLowerCase().includes('capacidade')
-            );
-            if (similares.length > 0) {
-                console.log('   🔎 Campos similares:', similares);
-            }
-        }
-    });
-}
-
 // ================================
-// CONTINUA COM AS FUNÇÕES RESTANTES...
-// (Todas as outras funções permanecem iguais)
+// CONTINUA COM RESTO DAS FUNÇÕES...
 // ================================
-
-// Copiando as funções restantes do arquivo original
 async function linkDataReal() {
-    console.log('🔗 === VINCULAÇÃO REAL ===');
+    console.log('🔗 === VINCULAÇÃO REAL PRESERVANDO DADOS ORIGINAIS ===');
     if (!dadosGeoJSON || dadosGeoJSON.length === 0) {
         throw new Error('Dados GeoJSON não carregados');
     }
@@ -526,7 +469,7 @@ async function linkDataReal() {
                 coordinates: processedGeometry.coordinates,
                 centroid: processedGeometry.centroid,
                 geometryType: geo.geometryType,
-                properties: combineProperties(geo, dadosExcel, objectId),
+                properties: combinePropertiesPreservandoOriginal(geo, dadosExcel, objectId),
                 originalGeoProps: geo.originalProperties,
                 excelData: dadosExcel,
                 isLinked: !!dadosExcel
@@ -548,7 +491,6 @@ async function linkDataReal() {
     console.log(`🗺️ Fora de São Luís: ${foraDaRegiao}`);
     console.log(`❌ Coordenadas inválidas: ${coordenadasInvalidas}`);
     console.log(`📈 Total válido: ${dadosCompletos.length}`);
-    console.log(`📈 Taxa de vinculação: ${dadosCompletos.length > 0 ? ((sucessos / dadosCompletos.length) * 100).toFixed(1) : 0}%`);
     
     if (dadosCompletos.length === 0) {
         throw new Error('Nenhum dado válido após processamento');
@@ -556,12 +498,70 @@ async function linkDataReal() {
     if (sucessos > 0) {
         console.log(`✅ Vinculação bem-sucedida: ${sucessos} imóveis`);
         showMessage(`✅ Vinculação: ${sucessos} imóveis com dados Excel`);
+        
+        // Atualizar filtros após carregar dados
+        if (window.updateFiltersOnDataChange) {
+            window.updateFiltersOnDataChange();
+        }
     }
     window.dadosCompletos = dadosCompletos;
     calcularEstatisticas();
     calcularEstatisticasPorBairro();
     updateSummaryCards();
     return dadosCompletos;
+}
+
+function combinePropertiesPreservandoOriginal(geoItem, excelData, objectId) {
+    if (!excelData) {
+        return {
+            id: objectId,
+            objectid: objectId,
+            bairro: 'Não informado'
+        };
+    }
+    
+    // Preservar TODOS os dados originais do Excel
+    const combined = { ...excelData };
+    
+    // Adicionar campos essenciais
+    combined.id = objectId;
+    combined.objectid = objectId;
+    
+    // Mapear campos específicos mantendo valores originais E numéricos
+    if (excelData['Bairros']) {
+        combined.bairro = excelData['Bairros'];
+    }
+    
+    // NOVO: Mapear campos específicos para o mapa com valores numéricos
+    const mapearCampoNumerico = (termosChave, nomeCampo) => {
+        for (const termo of termosChave) {
+            for (const [campo, valor] of Object.entries(excelData)) {
+                if (campo.toLowerCase().includes(termo.toLowerCase())) {
+                    // Valor original para exibição
+                    combined[nomeCampo] = valor;
+                    // Valor numérico para cálculos
+                    const valorNumerico = converterParaNumero(valor);
+                    combined[nomeCampo + '_numerico'] = valorNumerico;
+                    console.log(`✅ Mapeado ${nomeCampo}: "${valor}" → ${valorNumerico}`);
+                    return;
+                }
+            }
+        }
+        combined[nomeCampo] = '';
+        combined[nomeCampo + '_numerico'] = 0;
+    };
+    
+    // Mapear campos específicos
+    mapearCampoNumerico(['produção de energia kw do telhado'], 'producao_telhado');
+    mapearCampoNumerico(['capacidade de produção de energia em kw por m²', 'capacidade.*m²'], 'capacidade_por_m2');
+    mapearCampoNumerico(['área em metros quadrados'], 'area_edificacao');
+    mapearCampoNumerico(['quantidade de radiação máxima solar'], 'radiacao_max');
+    mapearCampoNumerico(['quantidade de placas fotovoltaicas'], 'quantidade_placas');
+    mapearCampoNumerico(['renda total'], 'renda_total');
+    mapearCampoNumerico(['renda per capita'], 'renda_per_capita');
+    mapearCampoNumerico(['renda domiciliar per capita'], 'renda_domiciliar_per_capita');
+    
+    return combined;
 }
 
 function processGeometrySIRGAS2000(geoItem) {
@@ -611,41 +611,12 @@ function calculateCentroid(points) {
     return [sumLat / points.length, sumLng / points.length];
 }
 
-function combineProperties(geoItem, excelData, objectId) {
-    const combined = {
-        id: objectId,
-        objectid: objectId,
-        bairro: excelData?.bairro || 'Não informado',
-        area_edificacao: excelData?.area_edificacao || 0,
-        producao_telhado: excelData?.producao_telhado || 0,
-        capacidade_por_m2: excelData?.capacidade_por_m2 || 0,
-        radiacao_max: excelData?.radiacao_max || 0,
-        quantidade_placas: excelData?.quantidade_placas || 0,
-        capacidade_placas_dia: excelData?.capacidade_placas_dia || 0,
-        capacidade_placas_mes: excelData?.capacidade_placas_mes || 0,
-        potencial_medio_dia: excelData?.potencial_medio_dia || 0,
-        renda_total: excelData?.renda_total || 0,
-        renda_per_capita: excelData?.renda_per_capita || 0,
-        renda_domiciliar_per_capita: excelData?.renda_domiciliar_per_capita || 0
-    };
-    
-    return combined;
-}
-
-// ================================
-// TODAS AS OUTRAS FUNÇÕES PERMANECEM IGUAIS
-// ================================
-
 function calcularEstatisticas() {
     if (dadosCompletos.length === 0) return;
     const totalImoveis = dadosCompletos.length;
-    const producaoTotal = dadosCompletos.reduce((sum, item) => sum + (item.properties.capacidade_placas_mes || 0), 0);
-    const mediaProducao = totalImoveis > 0 ? producaoTotal / totalImoveis : 0;
     
     estatisticas = {
-        total_imoveis: totalImoveis,
-        producao_total: producaoTotal,
-        media_producao: mediaProducao
+        total_imoveis: totalImoveis
     };
     window.estatisticas = estatisticas;
     console.log('📊 Estatísticas globais calculadas:', estatisticas);
@@ -657,7 +628,7 @@ function calcularEstatisticasPorBairro() {
     const dadosPorBairro = {};
     
     dadosCompletos.forEach(item => {
-        const bairro = item.properties.bairro || 'Não informado';
+        const bairro = item.properties.bairro || item.properties['Bairros'] || 'Não informado';
         if (!dadosPorBairro[bairro]) {
             dadosPorBairro[bairro] = [];
         }
@@ -667,20 +638,8 @@ function calcularEstatisticasPorBairro() {
     estatisticasPorBairro = {};
     
     Object.entries(dadosPorBairro).forEach(([bairro, imoveis]) => {
-        const totalImoveis = imoveis.length;
-        const somaProducaoTelhado = imoveis.reduce((sum, item) => sum + (item.properties.producao_telhado || 0), 0);
-        const somaRadiacaoMax = imoveis.reduce((sum, item) => sum + (item.properties.radiacao_max || 0), 0);
-        
-        const mediaProducaoTelhado = totalImoveis > 0 ? somaProducaoTelhado / totalImoveis : 0;
-        const mediaRadiacaoMax = totalImoveis > 0 ? somaRadiacaoMax / totalImoveis : 0;
-        
-        const mediaProducaoMensal = generateMonthlyAverages(mediaProducaoTelhado);
-        const mediaRadiacaoMensal = generateMonthlyAverages(mediaRadiacaoMax);
-        
         estatisticasPorBairro[bairro] = {
-            total_imoveis: totalImoveis,
-            media_producao_mensal: mediaProducaoMensal,
-            media_radiacao_mensal: mediaRadiacaoMensal
+            total_imoveis: imoveis.length
         };
     });
     
@@ -688,35 +647,12 @@ function calcularEstatisticasPorBairro() {
     console.log('📊 Estatísticas por bairro calculadas:', estatisticasPorBairro);
 }
 
-function generateMonthlyAverages(baseValue) {
-    if (!baseValue || baseValue === 0) {
-        return new Array(12).fill(0);
-    }
-    
-    const seasonalFactors = [1.1, 1.0, 0.9, 0.8, 0.7, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2];
-    
-    return seasonalFactors.map(factor => {
-        return (baseValue / 12) * factor;
-    });
-}
-
 function updateSummaryCards() {
     const dados = filtrarDados();
     const totalEl = document.getElementById('total-imoveis-display');
-    const producaoEl = document.getElementById('producao-total-display');
-    const mediaEl = document.getElementById('media-imovel-display');
     
     if (totalEl) {
         totalEl.textContent = dados.length.toLocaleString('pt-BR');
-    }
-    if (producaoEl) {
-        const total = dados.reduce((sum, item) => sum + (item.properties.capacidade_placas_mes || 0), 0);
-        producaoEl.textContent = formatNumber(total, 0);
-    }
-    if (mediaEl) {
-        const total = dados.reduce((sum, item) => sum + (item.properties.capacidade_placas_mes || 0), 0);
-        const media = dados.length > 0 ? total / dados.length : 0;
-        mediaEl.textContent = formatNumber(media, 2);
     }
 }
 
@@ -724,17 +660,24 @@ function filtrarDados() {
     return dadosCompletos.filter(item => {
         const props = item.properties;
         if (filtrosAtivos.bairros.length > 0) {
-            if (!filtrosAtivos.bairros.includes(props.bairro)) {
+            const bairro = props.bairro || props['Bairros'] || 'Não informado';
+            if (!filtrosAtivos.bairros.includes(bairro)) {
                 return false;
             }
         }
-        const valor = props[filtrosAtivos.info] || 0;
-        if (filtrosAtivos.minValue !== null && valor < filtrosAtivos.minValue) {
-            return false;
+        
+        // CORRIGIDO: Usar valores numéricos para filtros
+        if (filtrosAtivos.info && (filtrosAtivos.minValue !== null || filtrosAtivos.maxValue !== null)) {
+            const valorNumerico = props[filtrosAtivos.info + '_numerico'] || 0;
+            
+            if (filtrosAtivos.minValue !== null && valorNumerico < filtrosAtivos.minValue) {
+                return false;
+            }
+            if (filtrosAtivos.maxValue !== null && valorNumerico > filtrosAtivos.maxValue) {
+                return false;
+            }
         }
-        if (filtrosAtivos.maxValue !== null && valor > filtrosAtivos.maxValue) {
-            return false;
-        }
+        
         return true;
     });
 }
@@ -746,65 +689,95 @@ function selecionarImovel(imovelId) {
         updateInfoCards(imovel);
         updateRelatorio(imovel);
         updateCharts(imovel);
-        console.log(`✅ Imóvel ${imovelId} selecionado do bairro: ${imovel.properties.bairro}`);
-        console.log('📊 Dados vinculados:', imovel.isLinked ? 'SIM' : 'NÃO');
+        console.log(`✅ Imóvel ${imovelId} selecionado`);
+        console.log('📊 Dados Excel originais:', imovel.excelData);
         if (window.centerOnImovel) {
             window.centerOnImovel(imovelId);
         }
     }
 }
 
+// CARDS DE INFORMAÇÕES - USANDO DADOS EXATOS DO EXCEL
 function updateInfoCards(imovel = null) {
+    if (!imovel || !imovel.excelData) {
+        // Limpar cards se não houver dados
+        const elementos = [
+            'area-edificacao-display', 'radiacao-max-display', 'capacidade-por-m2-display',
+            'producao-telhado-display', 'capacidade-placas-dia-display', 'capacidade-placas-mes-display',
+            'quantidade-placas-display', 'potencial-medio-dia-display', 'renda-total-display',
+            'renda-per-capita-display', 'renda-domiciliar-per-capita-display'
+        ];
+        
+        elementos.forEach(id => {
+            const elemento = document.getElementById(id);
+            if (elemento) {
+                elemento.textContent = '0,00';
+            }
+        });
+        return;
+    }
+    
+    const dados = imovel.excelData;
+    
+    console.log('🔍 === DADOS ORIGINAIS DO EXCEL ===');
+    console.log('Todos os campos disponíveis:');
+    Object.entries(dados).forEach(([campo, valor]) => {
+        console.log(`  ${campo}: "${valor}"`);
+    });
+    
+    // Buscar campos específicos EXATAMENTE como estão no Excel
+    const buscarCampo = (termosChave) => {
+        for (const termo of termosChave) {
+            for (const [campo, valor] of Object.entries(dados)) {
+                if (campo.toLowerCase().includes(termo.toLowerCase())) {
+                    console.log(`✅ Encontrado campo "${campo}" para termo "${termo}": ${valor}`);
+                    return valor;
+                }
+            }
+        }
+        console.log(`❌ Não encontrado campo para termos: ${termosChave.join(', ')}`);
+        return '';
+    };
+    
+    // Mapear valores EXATOS do Excel
+    const valores = {
+        area: buscarCampo(['Área em metros quadrados', 'área', 'area']),
+        radiacao: buscarCampo(['Quantidade de Radiação Máxima Solar', 'radiacao', 'radiação']),
+        capacidade: buscarCampo(['Capacidade de Produção de energia em kW por m²', 'capacidade']),
+        producao: buscarCampo(['Produção de energia kW do telhado', 'produção', 'producao']),
+        placas_dia: buscarCampo(['Capacidade de Produção de energia em Placas Fotovoltaicas em kW.h.dia', 'placas.*dia']),
+        placas_mes: buscarCampo(['Capacidade de Produção de energia em Placas Fotovoltaicas em kW.h.mês', 'placas.*mês', 'placas.*mes']),
+        quantidade_placas: buscarCampo(['Quantidade de Placas Fotovoltaicas', 'quantidade.*placas']),
+        potencial: buscarCampo(['Potencial médio de geração FV', 'potencial']),
+        renda_total: buscarCampo(['Renda Total', 'renda total']),
+        renda_per_capita: buscarCampo(['Renda per capita', 'renda per capita']),
+        renda_domiciliar: buscarCampo(['Renda domiciliar per capita', 'renda domiciliar'])
+    };
+    
+    // Aplicar valores EXATOS nos cards
     const elementos = {
-        'area-edificacao-display': imovel ? (imovel.properties.area_edificacao || 0) : 0,
-        'radiacao-max-display': imovel ? (imovel.properties.radiacao_max || 0) : 0,
-        'capacidade-por-m2-display': imovel ? (imovel.properties.capacidade_por_m2 || 0) : 0,
-        'producao-telhado-display': imovel ? (imovel.properties.producao_telhado || 0) : 0,
-        'capacidade-placas-dia-display': imovel ? (imovel.properties.capacidade_placas_dia || 0) : 0,
-        'capacidade-placas-mes-display': imovel ? (imovel.properties.capacidade_placas_mes || 0) : 0,
-        'quantidade-placas-display': imovel ? (imovel.properties.quantidade_placas || 0) : 0,
-        'potencial-medio-dia-display': imovel ? (imovel.properties.potencial_medio_dia || 0) : 0,
-        'renda-total-display': imovel ? (imovel.properties.renda_total || 0) : 0,
-        'renda-per-capita-display': imovel ? (imovel.properties.renda_per_capita || 0) : 0,
-        'renda-domiciliar-per-capita-display': imovel ? (imovel.properties.renda_domiciliar_per_capita || 0) : 0
+        'area-edificacao-display': valores.area,
+        'radiacao-max-display': valores.radiacao,
+        'capacidade-por-m2-display': valores.capacidade,
+        'producao-telhado-display': valores.producao,
+        'capacidade-placas-dia-display': valores.placas_dia,
+        'capacidade-placas-mes-display': valores.placas_mes,
+        'quantidade-placas-display': valores.quantidade_placas,
+        'potencial-medio-dia-display': valores.potencial,
+        'renda-total-display': valores.renda_total,
+        'renda-per-capita-display': valores.renda_per_capita,
+        'renda-domiciliar-per-capita-display': valores.renda_domiciliar
     };
     
     Object.entries(elementos).forEach(([id, valor]) => {
         const elemento = document.getElementById(id);
         if (elemento) {
-            if (id.includes('quantidade')) {
-                elemento.textContent = formatNumber(valor, 0);
-            } else {
-                elemento.textContent = formatNumber(valor, 2);
-            }
+            // Usar valor EXATO do Excel - sem conversão
+            elemento.textContent = valor || '0,00';
         }
     });
     
-    if (imovel) {
-        console.log('🔍 === DEBUG VALORES DOS CARDS ===');
-        console.log(`Imóvel ID: ${imovel.id}`);
-        console.log(`Bairro: ${imovel.properties.bairro}`);
-        console.log(`Área: ${imovel.properties.area_edificacao}`);
-        console.log(`Radiação Máxima: ${imovel.properties.radiacao_max}`);
-        console.log(`Capacidade por m²: ${imovel.properties.capacidade_por_m2}`);
-        console.log(`Capacidade Placas Mês: ${imovel.properties.capacidade_placas_mes}`);
-        console.log(`Quantidade de Placas: ${imovel.properties.quantidade_placas}`);
-        console.log(`Potencial Médio: ${imovel.properties.potencial_medio_dia}`);
-        console.log('Dados originais Excel:', imovel.excelData);
-        
-        const camposZerados = [];
-        if (!imovel.properties.radiacao_max || imovel.properties.radiacao_max === 0) {
-            camposZerados.push('radiacao_max');
-        }
-        if (!imovel.properties.quantidade_placas || imovel.properties.quantidade_placas === 0) {
-            camposZerados.push('quantidade_placas');
-        }
-        
-        if (camposZerados.length > 0) {
-            console.log('⚠️ Campos zerados detectados:', camposZerados);
-            console.log('📋 Todos os campos disponíveis no Excel:', Object.keys(imovel.excelData || {}));
-        }
-    }
+    console.log('✅ Cards atualizados com valores EXATOS do Excel');
 }
 
 function updateRelatorio(imovel = null) {
@@ -812,23 +785,28 @@ function updateRelatorio(imovel = null) {
     const conteudoEl = document.getElementById('relatorio-conteudo');
     if (!tituloEl || !conteudoEl) return;
     
-    if (imovel) {
-        const props = imovel.properties;
+    if (imovel && imovel.excelData) {
+        const dados = imovel.excelData;
         tituloEl.textContent = `📊 Relatório - Imóvel ${imovel.id}`;
         
-        const textoRelatorio = `O imóvel selecionado no Bairro ${props.bairro}, localizado nas coordenadas (${imovel.centroid[0].toFixed(6)}, ${imovel.centroid[1].toFixed(6)}), possui ${formatNumber(props.area_edificacao, 2)} m², com Quantidade de Radiação Máxima Solar nos 12 meses do ano de ${formatNumber(props.radiacao_max, 2)} kW/m², apresentando uma Capacidade de Produção de energia de ${formatNumber(props.capacidade_por_m2, 2)} kW por m², com produção diária de ${formatNumber(props.capacidade_placas_dia, 2)} kWh e produção média mensal de ${formatNumber(props.capacidade_placas_mes, 2)} kWh. Para essa produção estima-se a necessidade de ${formatNumber(props.quantidade_placas, 0)} placas fotovoltaicas. O imóvel apresenta um potencial médio de geração de ${formatNumber(props.potencial_medio_dia, 2)} kW.dia/m² e está localizado em uma região com renda total de R$ ${formatNumber(props.renda_total, 2)}, renda per capita de R$ ${formatNumber(props.renda_per_capita, 2)} e renda domiciliar per capita de R$ ${formatNumber(props.renda_domiciliar_per_capita, 2)}.`;
+        // Buscar dados específicos do Excel
+        const bairro = dados['Bairros'] || dados['Bairro'] || 'Não informado';
+        const area = dados['Área em metros quadrados da edificação'] || '0';
+        const producao = dados['Produção de energia kW do telhado do edifício'] || '0';
+        const radiacao = dados['Quantidade de Radiação Máxima Solar nos mêses (kW.m²)'] || '0';
+        
+        const textoRelatorio = `O imóvel selecionado no Bairro ${bairro}, localizado nas coordenadas (${imovel.centroid[0].toFixed(6)}, ${imovel.centroid[1].toFixed(6)}), possui ${area} m², com Quantidade de Radiação Máxima Solar de ${radiacao} kW/m², e produção de energia de ${producao} kW do telhado do edifício.`;
         
         conteudoEl.innerHTML = `<p style="text-align: justify; line-height: 1.6;">${textoRelatorio}</p>`;
     } else {
         tituloEl.textContent = '📊 Relatório do Imóvel';
         conteudoEl.innerHTML = `
             <p>Selecione um imóvel no mapa para ver o relatório detalhado.</p>
-            <p><strong>Sistema EXCEL READER:</strong></p>
+            <p><strong>Sistema EXCEL REAL:</strong></p>
             <ul>
-                <li>✅ Lê arquivos Excel (.xlsx) diretamente</li>
-                <li>✅ Fallback automático para JSON</li>
-                <li>✅ Processamento otimizado</li>
-                <li>✅ Sem limite de tamanho GitHub</li>
+                <li>✅ Lê dados EXATAMENTE como estão no Excel</li>
+                <li>✅ Preserva formatação original</li>
+                <li>✅ Sem conversões ou alterações</li>
             </ul>
         `;
     }
@@ -898,40 +876,21 @@ function diagnosticDataDetailed() {
     console.log('🔍 === DIAGNÓSTICO DETALHADO ===');
     if (dadosGeoJSON && dadosGeoJSON.length > 0) {
         console.log(`📍 GeoJSON: ${dadosGeoJSON.length} features`);
-        const objectIds = dadosGeoJSON.map(item => item.id);
-        const uniqueIds = new Set(objectIds);
-        console.log(`📋 OBJECTIDs GeoJSON: ${objectIds.length} total, ${uniqueIds.size} únicos`);
-        console.log(`📋 Range GeoJSON: ${Math.min(...objectIds)} até ${Math.max(...objectIds)}`);
     }
     if (dadosExcel && dadosExcel.length > 0) {
         console.log(`📊 Excel: ${dadosExcel.length} registros`);
-        const objectIds = dadosExcel.map(row => extractObjectIdFromExcel(row)).filter(id => id !== null);
-        const uniqueIds = new Set(objectIds);
-        console.log(`📋 OBJECTIDs Excel: ${objectIds.length} válidos, ${uniqueIds.size} únicos`);
-        if (objectIds.length > 0) {
-            console.log(`📋 Range Excel: ${Math.min(...objectIds)} até ${Math.max(...objectIds)}`);
-        }
-        const firstRow = dadosExcel[0];
-        console.log(`📋 Campos disponíveis (${Object.keys(firstRow).length}):`, Object.keys(firstRow));
+        console.log('Exemplo de dados Excel originais:');
+        console.log(dadosExcel[0]);
     }
-    if (dadosGeoJSON.length > 0 && dadosExcel.length > 0) {
-        const geoIds = new Set(dadosGeoJSON.map(item => item.id));
-        const excelIds = new Set(dadosExcel.map(row => extractObjectIdFromExcel(row)).filter(id => id !== null));
-        const intersecao = new Set([...geoIds].filter(id => excelIds.has(id)));
-        console.log('🔗 ANÁLISE DE VINCULAÇÃO:');
-        console.log(`  📍 GeoJSON: ${geoIds.size} IDs únicos`);
-        console.log(`  📊 Excel: ${excelIds.size} IDs únicos`);
-        console.log(`  🎯 Interseção: ${intersecao.size} IDs comuns`);
-        if (intersecao.size > 0) {
-            const taxaVinculacao = (intersecao.size / Math.min(geoIds.size, excelIds.size)) * 100;
-            console.log(`  📈 Taxa de vinculação: ${taxaVinculacao.toFixed(1)}%`);
-            console.log(`  ✅ Primeiros IDs comuns:`, [...intersecao].slice(0, 5));
-        }
+    if (dadosCompletos && dadosCompletos.length > 0) {
+        console.log(`🔗 Dados completos: ${dadosCompletos.length} imóveis`);
+        console.log('Exemplo de dados combinados:');
+        console.log(dadosCompletos[0]);
     }
 }
 
 async function initializeDashboard() {
-    console.log('📊 === SOLARMAP - VERSÃO EXCEL READER ===');
+    console.log('📊 === SOLARMAP - VERSÃO EXCEL REAL ===');
     try {
         if (window.location.protocol === 'file:') {
             console.error('❌ Use Live Server!');
@@ -954,8 +913,24 @@ async function initializeDashboard() {
         initializeCharts();
         initializeFilters();
         initializeEvents();
-        console.log('✅ Dashboard EXCEL READER inicializado!');
-        showMessage('✅ SolarMap Excel Reader carregado com sucesso!');
+        console.log('✅ Dashboard EXCEL REAL inicializado!');
+        
+        // TESTE DOS DADOS
+        console.log('🔍 === TESTE DOS DADOS CARREGADOS ===');
+        if (dadosCompletos.length > 0) {
+            const exemploImovel = dadosCompletos[0];
+            console.log('Exemplo de imóvel completo:');
+            console.log('ID:', exemploImovel.id);
+            console.log('Dados Excel originais:', exemploImovel.excelData);
+            console.log('Todos os campos disponíveis:');
+            if (exemploImovel.excelData) {
+                Object.keys(exemploImovel.excelData).forEach(campo => {
+                    console.log(`  - ${campo}`);
+                });
+            }
+        }
+        
+        showMessage('✅ SolarMap Excel Reader carregado - dados preservados!');
     } catch (error) {
         console.error('❌ Erro na inicialização:', error);
         showMessage(`❌ Erro: ${error.message}`);
@@ -1017,13 +992,6 @@ async function addPolygonsAndWait() {
     });
 }
 
-function getMediaDoBairro(bairro) {
-    return estatisticasPorBairro[bairro] || {
-        media_producao_mensal: new Array(12).fill(0),
-        media_radiacao_mensal: new Array(12).fill(0)
-    };
-}
-
 // ================================
 // EXPORTAÇÕES GLOBAIS
 // ================================
@@ -1041,15 +1009,9 @@ window.imovelSelecionado = imovelSelecionado;
 window.CORES = CORES;
 window.COLOR_SCALE = COLOR_SCALE;
 window.formatNumber = formatNumber;
-window.getColorByValue = getColorByValue;
 window.diagnosticDataDetailed = diagnosticDataDetailed;
 window.convertSIRGAS2000UTMToWGS84 = convertSIRGAS2000UTMToWGS84;
 window.SIRGAS_2000_UTM_23S = SIRGAS_2000_UTM_23S;
 window.isValidSaoLuisCoordinate = isValidSaoLuisCoordinate;
-window.normalizeExcelData = normalizeExcelData;
-window.debugFieldMapping = debugFieldMapping;
-window.calcularEstatisticasPorBairro = calcularEstatisticasPorBairro;
-window.getMediaDoBairro = getMediaDoBairro;
-window.generateMonthlyAverages = generateMonthlyAverages;
 
-console.log('✅ DASHBOARD EXCEL READER COMPLETO CARREGADO!');
+console.log('✅ DASHBOARD EXCEL REAL - DADOS PRESERVADOS!');
