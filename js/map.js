@@ -1,6 +1,6 @@
 // ================================
 // MAPA INTERATIVO - SOLARMAP
-// VERSÃO COM AUTO-ZOOM E FORMATAÇÃO CORRIGIDA
+// VERSÃO CORRIGIDA: MAIS CORES + FORMATAÇÃO BR
 // ================================
 
 // Variáveis globais do mapa
@@ -10,32 +10,53 @@ let selectedPolygon = null;
 let legendControl = null;
 let allPolygons = [];
 
-// Cores NOVAS: Amarelo queimado → Laranja → Vermelho vivo
+// CORES EXPANDIDAS - MAIS VARIAÇÃO VISUAL (16 tons)
 const GRADIENT_COLORS = [
-    '#DAA520', '#FF8C00', '#FF7F00', '#FF6500',  // Amarelo queimado → Laranja
-    '#FF4500', '#FF2500', '#FF0000', '#DC143C'   // Laranja → Vermelho vivo
+    '#FFF8F0',  // Branco quase
+    '#FFF0E6',  // Laranja ultra claro
+    '#FFE8D6',  // Laranja muito claro 1
+    '#FFE0C7',  // Laranja muito claro 2
+    '#FFD8B8',  // Laranja claro 1
+    '#FFD0A8',  // Laranja claro 2
+    '#FFC080',  // Laranja médio claro
+    '#FFB366',  // Laranja médio
+    '#FFA64D',  // Laranja
+    '#FF9933',  // Laranja escuro 1
+    '#FF8C1A',  // Laranja escuro 2
+    '#FF7F00',  // Laranja forte
+    '#E6720A',  // Laranja muito forte
+    '#CC6600',  // Vermelho alaranjado
+    '#B35900',  // Vermelho escuro 1
+    '#994D00'   // Vermelho escuro 2
 ];
 
 // ================================
-// FUNÇÃO DE FORMATAÇÃO CORRIGIDA
+// FUNÇÃO DE FORMATAÇÃO BRASILEIRA CORRIGIDA
 // ================================
-function formatNumberWithDots(numero, decimais = 2) {
+function formatarNumeroBrasileiro(numero, decimais = 2) {
     if (numero === null || numero === undefined || isNaN(numero)) {
         return '0,00';
     }
     
-    // Usar formatação brasileira com pontos nos milhares
-    return new Intl.NumberFormat('pt-BR', {
+    // Converter para número se for string
+    const num = typeof numero === 'string' ? parseFloat(numero) : numero;
+    
+    if (isNaN(num)) {
+        return '0,00';
+    }
+    
+    // Usar toLocaleString com configuração brasileira
+    return num.toLocaleString('pt-BR', {
         minimumFractionDigits: decimais,
         maximumFractionDigits: decimais
-    }).format(numero);
+    });
 }
 
 // ================================
 // INICIALIZAÇÃO DO MAPA
 // ================================
 function initMap() {
-    console.log('🗺️ Inicializando mapa com auto-zoom...');
+    console.log('🗺️ Inicializando mapa com cores expandidas...');
     
     try {
         // Criar mapa centrado em São Luís
@@ -63,7 +84,7 @@ function initMap() {
 }
 
 // ================================
-// CRIAR LEGENDA EM GRADIENTE
+// CRIAR LEGENDA EM GRADIENTE MELHORADA
 // ================================
 function createMapLegend(currentField, minValue, maxValue) {
     // Remover legenda anterior se existir
@@ -92,13 +113,13 @@ function createMapLegend(currentField, minValue, maxValue) {
             font-family: Arial, sans-serif;
             font-size: 12px;
             line-height: 1.4;
-            min-width: 180px;
+            min-width: 200px;
         `;
         
         // Título da legenda
         div.innerHTML = `<h4 style="margin: 0 0 10px 0; color: #1e3a5f; font-size: 14px; font-weight: bold;">${title}</h4>`;
         
-        // Criar gradiente CSS
+        // Criar gradiente CSS mais suave com 16 cores
         const gradientStops = GRADIENT_COLORS.map((color, index) => {
             const percentage = (index / (GRADIENT_COLORS.length - 1)) * 100;
             return `${color} ${percentage}%`;
@@ -115,10 +136,10 @@ function createMapLegend(currentField, minValue, maxValue) {
             "></div>
         `;
         
-        // Labels de valores - FORMATAÇÃO CORRIGIDA
-        const formatMin = window.formatNumber ? window.formatNumber(minValue, 1) : minValue.toFixed(1);
-        const formatMax = window.formatNumber ? window.formatNumber(maxValue, 1) : maxValue.toFixed(1);
-        const formatMid = window.formatNumber ? window.formatNumber((minValue + maxValue) / 2, 1) : ((minValue + maxValue) / 2).toFixed(1);
+        // Labels de valores com formatação brasileira
+        const formatMin = formatarNumeroBrasileiro(minValue, 1);
+        const formatMax = formatarNumeroBrasileiro(maxValue, 1);
+        const formatMid = formatarNumeroBrasileiro((minValue + maxValue) / 2, 1);
         
         div.innerHTML += `
             <div style="
@@ -145,7 +166,7 @@ function createMapLegend(currentField, minValue, maxValue) {
                 color: #888;
                 text-align: center;
             ">
-                ${formatNumberWithDots(dadosFiltrados.length, 0)} imóveis exibidos
+                ${dadosFiltrados.length} imóveis exibidos
             </div>
         `;
         
@@ -153,38 +174,52 @@ function createMapLegend(currentField, minValue, maxValue) {
     };
     
     legendControl.addTo(mapInstance);
-    console.log(`🎨 Legenda gradiente criada para ${title}`);
+    console.log(`🎨 Legenda expandida criada para ${title}`);
 }
 
 // ================================
-// FUNÇÃO PARA OBTER COR DO GRADIENTE
+// FUNÇÃO MELHORADA PARA OBTER COR DO GRADIENTE
 // ================================
 function getGradientColor(valor, minValue, maxValue) {
     if (maxValue === minValue) {
         return GRADIENT_COLORS[0];
     }
     
-    const normalized = (valor - minValue) / (maxValue - minValue);
-    const index = normalized * (GRADIENT_COLORS.length - 1);
-    const lowerIndex = Math.floor(index);
-    const upperIndex = Math.ceil(index);
+    // Normalizar valor entre 0 e 1
+    const normalized = Math.max(0, Math.min(1, (valor - minValue) / (maxValue - minValue)));
     
+    // Mapear para o índice das cores (0 a 15)
+    const colorIndex = normalized * (GRADIENT_COLORS.length - 1);
+    const lowerIndex = Math.floor(colorIndex);
+    const upperIndex = Math.min(Math.ceil(colorIndex), GRADIENT_COLORS.length - 1);
+    
+    // Se os índices são iguais, retornar a cor diretamente
     if (lowerIndex === upperIndex) {
         return GRADIENT_COLORS[lowerIndex];
     }
     
-    // Interpolação entre duas cores
-    const factor = index - lowerIndex;
+    // Interpolação suave entre duas cores adjacentes
+    const factor = colorIndex - lowerIndex;
     const lowerColor = GRADIENT_COLORS[lowerIndex];
     const upperColor = GRADIENT_COLORS[upperIndex];
     
-    // Converter hex para RGB, interpolar e converter de volta
-    const lowerRgb = hexToRgb(lowerColor);
-    const upperRgb = hexToRgb(upperColor);
+    return interpolateColors(lowerColor, upperColor, factor);
+}
+
+// ================================
+// FUNÇÃO DE INTERPOLAÇÃO DE CORES MELHORADA
+// ================================
+function interpolateColors(color1, color2, factor) {
+    const rgb1 = hexToRgb(color1);
+    const rgb2 = hexToRgb(color2);
     
-    const r = Math.round(lowerRgb.r + (upperRgb.r - lowerRgb.r) * factor);
-    const g = Math.round(lowerRgb.g + (upperRgb.g - lowerRgb.g) * factor);
-    const b = Math.round(lowerRgb.b + (upperRgb.b - lowerRgb.b) * factor);
+    if (!rgb1 || !rgb2) {
+        return color1;
+    }
+    
+    const r = Math.round(rgb1.r + (rgb2.r - rgb1.r) * factor);
+    const g = Math.round(rgb1.g + (rgb2.g - rgb1.g) * factor);
+    const b = Math.round(rgb1.b + (rgb2.b - rgb1.b) * factor);
     
     return `rgb(${r}, ${g}, ${b})`;
 }
@@ -202,77 +237,10 @@ function hexToRgb(hex) {
 }
 
 // ================================
-// NOVO: AUTO-ZOOM PARA BAIRRO SELECIONADO
-// ================================
-function autoZoomToBairro(bairroSelecionado) {
-    if (!bairroSelecionado || !window.dadosCompletos) {
-        // Se não há bairro selecionado, mostrar todos os dados
-        const dadosFiltrados = window.filtrarDados();
-        if (dadosFiltrados.length > 0) {
-            const bounds = calculateBounds(dadosFiltrados);
-            if (bounds) {
-                mapInstance.fitBounds(bounds, { padding: [20, 20] });
-                console.log('🎯 Zoom ajustado para mostrar todos os dados filtrados');
-            }
-        }
-        return;
-    }
-    
-    // Filtrar imóveis do bairro selecionado
-    const imoveisDoBairro = window.dadosCompletos.filter(item => 
-        item.properties.bairro === bairroSelecionado
-    );
-    
-    if (imoveisDoBairro.length === 0) {
-        console.warn(`⚠️ Nenhum imóvel encontrado no bairro: ${bairroSelecionado}`);
-        return;
-    }
-    
-    // Calcular bounds do bairro
-    const bounds = calculateBounds(imoveisDoBairro);
-    if (bounds) {
-        mapInstance.fitBounds(bounds, { 
-            padding: [30, 30],
-            maxZoom: 14  // Zoom máximo para não ficar muito próximo
-        });
-        console.log(`🎯 Zoom automático para bairro: ${bairroSelecionado} (${imoveisDoBairro.length} imóveis)`);
-    }
-}
-
-// ================================
-// CALCULAR BOUNDS DE UM CONJUNTO DE DADOS
-// ================================
-function calculateBounds(dados) {
-    if (!dados || dados.length === 0) return null;
-    
-    let minLat = Infinity, maxLat = -Infinity;
-    let minLng = Infinity, maxLng = -Infinity;
-    
-    dados.forEach(item => {
-        if (item.centroid && item.centroid.length >= 2) {
-            const lat = item.centroid[0];
-            const lng = item.centroid[1];
-            
-            minLat = Math.min(minLat, lat);
-            maxLat = Math.max(maxLat, lat);
-            minLng = Math.min(minLng, lng);
-            maxLng = Math.max(maxLng, lng);
-        }
-    });
-    
-    if (minLat === Infinity) return null;
-    
-    return [
-        [minLat, minLng],
-        [maxLat, maxLng]
-    ];
-}
-
-// ================================
 // ADICIONAR POLÍGONOS AO MAPA
 // ================================
 function addPolygonsToMap() {
-    console.log('📍 Adicionando polígonos com gradiente e auto-zoom...');
+    console.log('📍 Adicionando polígonos com 16 cores expandidas...');
     
     if (!window.dadosCompletos || window.dadosCompletos.length === 0) {
         console.error('❌ Dados não disponíveis para o mapa');
@@ -293,9 +261,9 @@ function addPolygonsToMap() {
     // Obter dados filtrados
     const dadosFiltrados = window.filtrarDados();
     
-    // Calcular min/max apenas dos dados filtrados USANDO VALORES NUMÉRICOS
+    // Calcular min/max apenas dos dados filtrados
     const values = dadosFiltrados
-        .map(item => item.properties[currentField + '_numerico'] || 0)
+        .map(item => item.properties[currentField] || 0)
         .filter(val => val > 0);
     
     if (values.length === 0) {
@@ -306,13 +274,8 @@ function addPolygonsToMap() {
     const minValue = Math.min(...values);
     const maxValue = Math.max(...values);
 
-    console.log(`🎨 Gradiente por: ${currentField} (${minValue} - ${maxValue})`);
+    console.log(`🎨 Gradiente expandido por: ${currentField} (${minValue} - ${maxValue})`);
     console.log(`📊 Exibindo ${dadosFiltrados.length} de ${window.dadosCompletos.length} polígonos`);
-    console.log(`📊 Valores numéricos encontrados: ${values.length}`);
-    
-    // DEBUG: Mostrar alguns valores para verificar
-    console.log('🔍 Primeiros 5 valores numéricos:', values.slice(0, 5));
-    console.log('🔍 Últimos 5 valores numéricos:', values.slice(-5));
 
     // Criar legenda
     createMapLegend(currentField, minValue, maxValue);
@@ -331,11 +294,9 @@ function addPolygonsToMap() {
             // Converter coordenadas para formato Leaflet [lat, lng]
             const leafletCoords = item.coordinates.map(coord => [coord[0], coord[1]]);
             
-            // Valor para coloração com gradiente - USAR VALOR NUMÉRICO
-            const fieldValue = item.properties[currentField + '_numerico'] || 0;
+            // Valor para coloração com gradiente expandido
+            const fieldValue = item.properties[currentField] || 0;
             const color = getGradientColor(fieldValue, minValue, maxValue);
-            
-            console.log(`🎨 Imóvel ${item.id}: valor original="${item.properties[currentField]}", numérico=${fieldValue}, cor=${color}`);
 
             // Criar polígono SEM BORDAS
             const polygon = L.polygon(leafletCoords, {
@@ -350,7 +311,7 @@ function addPolygonsToMap() {
             polygon.itemId = item.id;
             polygon.itemData = item;
 
-            // Criar popup
+            // Criar popup com formatação brasileira
             const popupContent = createPopupContent(item);
             polygon.bindPopup(popupContent);
 
@@ -390,70 +351,40 @@ function addPolygonsToMap() {
         }
     });
 
-    console.log(`✅ Polígonos com gradiente adicionados: ${polygonCount}`);
+    console.log(`✅ Polígonos com 16 cores adicionados: ${polygonCount}`);
     if (errorCount > 0) {
         console.warn(`⚠️ Erros encontrados: ${errorCount}`);
     }
 
-    // NOVO: Auto-zoom baseado no bairro selecionado
-    const bairroSelecionado = window.filtrosAtivos?.bairros?.[0];
-    autoZoomToBairro(bairroSelecionado);
+    // Ajustar zoom para mostrar todos os polígonos filtrados
+    if (polygonCount > 0) {
+        try {
+            mapInstance.fitBounds(layerGroup.getBounds(), { padding: [10, 10] });
+        } catch (error) {
+            console.warn('⚠️ Não foi possível ajustar zoom automaticamente');
+        }
+    }
 }
 
 // ================================
-// CRIAR CONTEÚDO DO POPUP - DADOS EXATOS DO EXCEL COM FORMATAÇÃO CORRETA
+// CRIAR CONTEÚDO DO POPUP COM FORMATAÇÃO BRASILEIRA
 // ================================
 function createPopupContent(item) {
-    if (!item.excelData) {
-        return `
-            <div style="min-width: 280px;">
-                <h4 style="margin: 0 0 10px 0; color: #1e3a5f;">
-                    🏠 Imóvel ${item.id}
-                </h4>
-                <p>Dados não disponíveis</p>
-            </div>
-        `;
-    }
-    
-    const dados = item.excelData;
-    
-    // Buscar campos específicos EXATAMENTE como estão no Excel
-    const buscarCampo = (termosChave) => {
-        for (const termo of termosChave) {
-            for (const [campo, valor] of Object.entries(dados)) {
-                if (campo.toLowerCase().includes(termo.toLowerCase())) {
-                    return valor || '0';
-                }
-            }
-        }
-        return '0';
-    };
-    
-    const bairro = buscarCampo(['bairros', 'bairro']);
-    const area = buscarCampo(['área em metros quadrados', 'área', 'area']);
-    const producao = buscarCampo(['produção de energia kw do telhado', 'produção', 'producao']);
-    const radiacao = buscarCampo(['quantidade de radiação máxima solar', 'radiação', 'radiacao']);
-    const placas = buscarCampo(['quantidade de placas fotovoltaicas', 'placas']);
-    const rendaTotal = buscarCampo(['renda domiciliar per capita', 'renda total']);
-    
-    console.log(`🔍 Popup Imóvel ${item.id}:`);
-    console.log(`  Produção original: "${producao}"`);
-    console.log(`  Produção numérica: ${item.properties.producao_telhado_numerico}`);
-    console.log(`  Área original: "${area}"`);
-    console.log(`  Área numérica: ${item.properties.area_edificacao_numerico}`);
+    const props = item.properties;
     
     return `
-        <div style="min-width: 280px;">
-            <h4 style="margin: 0 0 10px 0; color: #1e3a5f;">
+        <div style="min-width: 280px; font-family: Arial, sans-serif;">
+            <h4 style="margin: 0 0 10px 0; color: #1e3a5f; font-size: 16px;">
                 🏠 Imóvel ${item.id}
             </h4>
-            <p><strong>Bairro:</strong> ${bairro}</p>
-            <p><strong>Área:</strong> ${area} m²</p>
-            <p><strong>Produção:</strong> ${producao} kW</p>
-            <p><strong>Radiação:</strong> ${radiacao} kW/m²</p>
-            <p><strong>Placas:</strong> ${placas} unidades</p>
-            <p><strong>Renda Total:</strong> R$ ${rendaTotal}</p>
-            <p><small><em>Valor numérico produção: ${item.properties.producao_telhado_numerico || 0}</em></small></p>
+            <p style="margin: 5px 0;"><strong>Bairro:</strong> ${props.bairro}</p>
+            <p style="margin: 5px 0;"><strong>Área:</strong> ${formatarNumeroBrasileiro(props.area_edificacao)} m²</p>
+            <p style="margin: 5px 0;"><strong>Produção:</strong> ${formatarNumeroBrasileiro(props.producao_telhado)} kW</p>
+            <p style="margin: 5px 0;"><strong>Radiação:</strong> ${formatarNumeroBrasileiro(props.radiacao_max)} kW/m²</p>
+            <p style="margin: 5px 0;"><strong>Capacidade/m²:</strong> ${formatarNumeroBrasileiro(props.capacidade_por_m2)} kW</p>
+            <p style="margin: 5px 0;"><strong>Placas:</strong> ${formatarNumeroBrasileiro(props.quantidade_placas, 0)} unidades</p>
+            <p style="margin: 5px 0;"><strong>Produção Mensal:</strong> ${formatarNumeroBrasileiro(props.capacidade_placas_mes)} kWh</p>
+            <p style="margin: 5px 0;"><strong>Renda Domiciliar:</strong> R$ ${formatarNumeroBrasileiro(props.renda_domiciliar_per_capita)}</p>
         </div>
     `;
 }
@@ -519,7 +450,7 @@ function clearSelection() {
 // ATUALIZAR CORES DO MAPA
 // ================================
 function updateMapColors(field = 'capacidade_por_m2') {
-    console.log(`🎨 Atualizando gradiente do mapa por: ${field}`);
+    console.log(`🎨 Atualizando gradiente expandido do mapa por: ${field}`);
     
     // Atualizar filtros ativos
     if (window.filtrosAtivos) {
@@ -531,10 +462,10 @@ function updateMapColors(field = 'capacidade_por_m2') {
 }
 
 // ================================
-// FILTRAR POLÍGONOS NO MAPA - CORRIGIDO COM AUTO-ZOOM
+// FILTRAR POLÍGONOS NO MAPA
 // ================================
 function filterMapPolygons() {
-    console.log('🔍 Aplicando filtros no mapa (gradiente + auto-zoom)...');
+    console.log('🔍 Aplicando filtros no mapa (16 cores)...');
     
     if (!window.filtrarDados) {
         console.warn('⚠️ Função filtrarDados não disponível');
@@ -544,7 +475,7 @@ function filterMapPolygons() {
     // Recriar o mapa completamente com os dados filtrados
     addPolygonsToMap();
     
-    console.log('✅ Filtros aplicados - mapa com gradiente e auto-zoom atualizado');
+    console.log('✅ Filtros aplicados - mapa com 16 cores atualizado');
 }
 
 // ================================
@@ -559,8 +490,7 @@ window.updateMapColors = updateMapColors;
 window.filterMapPolygons = filterMapPolygons;
 window.createMapLegenda = createMapLegend;
 window.getGradientColor = getGradientColor;
+window.formatarNumeroBrasileiro = formatarNumeroBrasileiro;
 window.GRADIENT_COLORS = GRADIENT_COLORS;
-window.autoZoomToBairro = autoZoomToBairro;
-window.formatNumberWithDots = formatNumberWithDots;
 
-console.log('✅ MAP.JS COM AUTO-ZOOM E FORMATAÇÃO CORRIGIDA!');
+console.log('✅ MAP.JS CORRIGIDO - 16 cores + formatação brasileira implementada!');
