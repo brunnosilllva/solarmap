@@ -300,22 +300,40 @@ async function loadExcelData() {
             header: 1,
             defval: '',           // Valor padrão para células vazias
             raw: false,          // IMPORTANTE: Manter formatação original
-            dateNF: 'dd/mm/yyyy'
+            dateNF: 'dd/mm/yyyy',
+            range: undefined      // Ler toda a planilha
         });
+        
+        console.log(`📋 Dados brutos extraídos: ${jsonData.length} linhas`);
         
         if (jsonData.length === 0) {
             throw new Error('❌ Planilha Excel está vazia');
         }
         
+        // Verificar se a primeira linha tem dados
+        if (jsonData.length < 2) {
+            console.error('❌ Planilha só tem headers, sem dados');
+            console.log('Primeira linha (headers):', jsonData[0]);
+            throw new Error('❌ Planilha não tem dados, apenas headers');
+        }
+        
         // Primeira linha são os headers
         const headers = jsonData[0];
-        console.log(`📋 Headers encontrados (${headers.length}):`, headers.slice(0, 10), '...');
+        console.log(`📋 Headers encontrados (${headers.length}):`, headers.slice(0, 5), '...');
+        
+        // Verificar se headers estão vazios
+        if (!headers || headers.length === 0 || headers.every(h => !h)) {
+            console.error('❌ Headers estão vazios ou inválidos');
+            console.log('Headers recebidos:', headers);
+            throw new Error('❌ Headers do Excel estão vazios');
+        }
         
         // Converter dados em objetos PRESERVANDO FORMATO ORIGINAL
         const dataObjects = [];
         for (let i = 1; i < jsonData.length; i++) {
             const row = jsonData[i];
             const obj = {};
+            let temDados = false;
             
             headers.forEach((header, index) => {
                 if (header && header.toString().trim()) {
@@ -323,19 +341,28 @@ async function loadExcelData() {
                     
                     // PRESERVAR VALOR EXATAMENTE COMO ESTÁ NO EXCEL
                     if (valor !== null && valor !== undefined && valor !== '') {
-                        obj[header.toString().trim()] = valor; // Manter valor original
+                        obj[header.toString().trim()] = valor;
+                        temDados = true;
                     } else {
                         obj[header.toString().trim()] = '';
                     }
                 }
             });
             
-            if (Object.keys(obj).length > 0) {
+            // Só adicionar se a linha tem pelo menos alguns dados
+            if (temDados && Object.keys(obj).length > 0) {
                 dataObjects.push(obj);
             }
         }
         
-        console.log(`✅ Excel processado: ${dataObjects.length} registros`);
+        console.log(`✅ Excel processado: ${dataObjects.length} registros válidos`);
+        
+        if (dataObjects.length === 0) {
+            console.error('❌ Nenhum registro válido encontrado no Excel');
+            console.log('Exemplo de linha de dados:', jsonData[1]);
+            console.log('Headers:', headers);
+            throw new Error('❌ Excel não contém dados válidos');
+        }
         
         // DEBUG: Mostrar primeiro registro com valores originais
         if (dataObjects.length > 0) {
@@ -344,6 +371,18 @@ async function loadExcelData() {
             Object.entries(exemplo).slice(0, 10).forEach(([campo, valor]) => {
                 console.log(`  ${campo}: "${valor}" (tipo: ${typeof valor})`);
             });
+            
+            // Verificar se tem OBJECTID
+            const objectIdFields = ['OBJECTID', 'ObjectID', 'objectid', 'FID', 'ID'];
+            const temObjectId = objectIdFields.some(field => exemplo.hasOwnProperty(field));
+            console.log('✅ Tem campo de ID?', temObjectId);
+            
+            if (!temObjectId) {
+                console.warn('⚠️ ATENÇÃO: Não foi encontrado campo OBJECTID nos dados');
+                console.log('Campos disponíveis:', Object.keys(exemplo));
+            }
+        } else {
+            console.error('❌ Nenhum registro foi processado do Excel');
         }
         
         // Normalizar dados PRESERVANDO valores originais
@@ -352,7 +391,25 @@ async function loadExcelData() {
         
     } catch (error) {
         console.error('❌ Erro ao carregar Excel:', error);
-        throw error;
+        
+        // FALLBACK: Tentar carregar JSON como backup
+        console.log('🔄 Tentando fallback para JSON...');
+        try {
+            const jsonResponse = await fetch('data/Dados_energia_solar.json');
+            if (!jsonResponse.ok) {
+                throw new Error(`JSON também não encontrado: ${jsonResponse.status}`);
+            }
+            
+            const jsonData = await jsonResponse.json();
+            console.log(`✅ JSON fallback carregado: ${jsonData.length} registros`);
+            
+            dadosExcel = jsonData.map(row => normalizeExcelDataPreservandoOriginal(row));
+            console.log(`✅ Dados JSON normalizados: ${dadosExcel.length} registros`);
+            
+        } catch (jsonError) {
+            console.error('❌ Fallback JSON também falhou:', jsonError);
+            throw new Error(`Não foi possível carregar dados Excel nem JSON: ${error.message}`);
+        }
     }
 }
 
