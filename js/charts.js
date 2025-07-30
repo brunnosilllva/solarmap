@@ -150,9 +150,11 @@ function initProducaoChart() {
                         label: function(context) {
                             const valor = context.raw;
                             const label = context.dataset.label || '';
-                            const valorFormatado = window.formatarComoExcel ? 
-                                window.formatarComoExcel(valor, 2) : 
-                                valor.toFixed(2);
+                            // FORMATAÇÃO BRASILEIRA CORRETA: 1.234,56
+                            const valorFormatado = new Intl.NumberFormat('pt-BR', {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2
+                            }).format(valor);
                             return `${label}: ${valorFormatado} kW`;
                         },
                         afterBody: function(context) {
@@ -300,9 +302,11 @@ function initRadiacaoChart() {
                         label: function(context) {
                             const valor = context.raw;
                             const label = context.dataset.label || '';
-                            const valorFormatado = window.formatarComoExcel ? 
-                                window.formatarComoExcel(valor, 2) : 
-                                valor.toFixed(2);
+                            // FORMATAÇÃO BRASILEIRA CORRETA: 1.234,56
+                            const valorFormatado = new Intl.NumberFormat('pt-BR', {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2
+                            }).format(valor);
                             return `${label}: ${valorFormatado} kW/m²`;
                         },
                         afterBody: function(context) {
