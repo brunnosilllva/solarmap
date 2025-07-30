@@ -115,10 +115,10 @@ function createMapLegend(currentField, minValue, maxValue) {
             "></div>
         `;
         
-        // Labels de valores - FORMATAÇÃO CORRIGIDA
-        const formatMin = window.formatNumber ? window.formatNumber(minValue, 1) : minValue.toFixed(1);
-        const formatMax = window.formatNumber ? window.formatNumber(maxValue, 1) : maxValue.toFixed(1);
-        const formatMid = window.formatNumber ? window.formatNumber((minValue + maxValue) / 2, 1) : ((minValue + maxValue) / 2).toFixed(1);
+        // Labels de valores - FORMATAÇÃO BRASILEIRA CORRETA
+        const formatMin = window.formatNumber ? window.formatNumber(minValue, 1) : minValue.toLocaleString('pt-BR', {minimumFractionDigits: 1});
+        const formatMax = window.formatNumber ? window.formatNumber(maxValue, 1) : maxValue.toLocaleString('pt-BR', {minimumFractionDigits: 1});
+        const formatMid = window.formatNumber ? window.formatNumber((minValue + maxValue) / 2, 1) : ((minValue + maxValue) / 2).toLocaleString('pt-BR', {minimumFractionDigits: 1});
         
         div.innerHTML += `
             <div style="
@@ -401,7 +401,7 @@ function addPolygonsToMap() {
 }
 
 // ================================
-// CRIAR CONTEÚDO DO POPUP - DADOS EXATOS DO EXCEL COM FORMATAÇÃO CORRETA
+// CRIAR CONTEÚDO DO POPUP - FORMATAÇÃO BRASILEIRA CORRETA
 // ================================
 function createPopupContent(item) {
     if (!item.excelData) {
@@ -439,8 +439,21 @@ function createPopupContent(item) {
     console.log(`🔍 Popup Imóvel ${item.id}:`);
     console.log(`  Produção original: "${producao}"`);
     console.log(`  Produção numérica: ${item.properties.producao_telhado_numerico}`);
-    console.log(`  Área original: "${area}"`);
-    console.log(`  Área numérica: ${item.properties.area_edificacao_numerico}`);
+    
+    // FORMATAÇÃO BRASILEIRA CORRETA para popup
+    const formatarParaPopup = (valor) => {
+        if (!valor || valor === '0') return '0,00';
+        if (typeof valor === 'string') {
+            // Se já está formatado brasileiro, manter
+            if (valor.includes('.') && valor.includes(',')) {
+                return valor;
+            }
+            // Se é número puro, formatar
+            const num = window.formatNumber ? window.formatNumber(valor, 2) : valor;
+            return num;
+        }
+        return window.formatNumber ? window.formatNumber(valor, 2) : valor.toLocaleString('pt-BR', {minimumFractionDigits: 2});
+    };
     
     return `
         <div style="min-width: 280px;">
@@ -448,12 +461,11 @@ function createPopupContent(item) {
                 🏠 Imóvel ${item.id}
             </h4>
             <p><strong>Bairro:</strong> ${bairro}</p>
-            <p><strong>Área:</strong> ${area} m²</p>
-            <p><strong>Produção:</strong> ${producao} kW</p>
-            <p><strong>Radiação:</strong> ${radiacao} kW/m²</p>
-            <p><strong>Placas:</strong> ${placas} unidades</p>
-            <p><strong>Renda Total:</strong> R$ ${rendaTotal}</p>
-            <p><small><em>Valor numérico produção: ${item.properties.producao_telhado_numerico || 0}</em></small></p>
+            <p><strong>Área:</strong> ${formatarParaPopup(area)} m²</p>
+            <p><strong>Produção:</strong> ${formatarParaPopup(producao)} kW</p>
+            <p><strong>Radiação:</strong> ${formatarParaPopup(radiacao)} kW/m²</p>
+            <p><strong>Placas:</strong> ${window.formatNumber ? window.formatNumber(placas, 0) : placas} unidades</p>
+            <p><strong>Renda Total:</strong> R$ ${formatarParaPopup(rendaTotal)}</p>
         </div>
     `;
 }
