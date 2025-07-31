@@ -284,25 +284,62 @@ async function loadExcelData() {
         const workbook = XLSX.read(arrayBuffer, {
             type: 'array',
             cellDates: false,      // Não converter datas automaticamente
-            cellStyles: true,      // Manter estilos
+            cellStyles: false,     // Não precisa de estilos
             cellFormulas: false,   // Não processar fórmulas
             raw: false,           // NÃO converter valores - manter como string
-            dateNF: 'dd/mm/yyyy'  // Formato de data brasileiro
+            dateNF: 'dd/mm/yyyy', // Formato de data brasileiro
+            sheetRows: 0          // Ler todas as linhas
         });
         
         const firstSheetName = workbook.SheetNames[0];
         console.log(`📋 Processando planilha: ${firstSheetName}`);
+        console.log(`📋 Planilhas disponíveis: ${workbook.SheetNames.join(', ')}`);
         
         const worksheet = workbook.Sheets[firstSheetName];
         
-        // Converter para JSON mantendo formato original
-        const jsonData = XLSX.utils.sheet_to_json(worksheet, {
+        // DEBUG: Verificar estrutura da planilha
+        console.log('📋 Estrutura da planilha:', Object.keys(worksheet).slice(0, 10));
+        console.log('📋 Range da planilha:', worksheet['!ref']);
+        
+        // Tentar diferentes métodos de extração
+        let jsonData;
+        
+        // Método 1: Com headers automáticos
+        const metodo1 = XLSX.utils.sheet_to_json(worksheet, {
             header: 1,
-            defval: '',           // Valor padrão para células vazias
-            raw: false,          // IMPORTANTE: Manter formatação original
-            dateNF: 'dd/mm/yyyy',
-            range: undefined      // Ler toda a planilha
+            defval: '',
+            raw: false,
+            range: undefined
         });
+        
+        console.log(`📋 Método 1 - Linhas extraídas: ${metodo1.length}`);
+        if (metodo1.length > 0) {
+            console.log('📋 Primeira linha:', metodo1[0]);
+            console.log('📋 Segunda linha:', metodo1[1]);
+        }
+        
+        // Método 2: Sem headers
+        const metodo2 = XLSX.utils.sheet_to_json(worksheet, {
+            header: 'A',
+            defval: '',
+            raw: false
+        });
+        
+        console.log(`📋 Método 2 - Registros extraídos: ${metodo2.length}`);
+        if (metodo2.length > 0) {
+            console.log('📋 Primeiro registro método 2:', Object.keys(metodo2[0]).slice(0, 5));
+        }
+        
+        // Escolher método que funcionar melhor
+        if (metodo1.length > 1) {
+            jsonData = metodo1;
+            console.log('✅ Usando método 1 (header: 1)');
+        } else if (metodo2.length > 0) {
+            jsonData = Object.values(metodo2);
+            console.log('✅ Usando método 2 (header: A)');
+        } else {
+            throw new Error('❌ Nenhum método conseguiu extrair dados da planilha');
+        }
         
         console.log(`📋 Dados brutos extraídos: ${jsonData.length} linhas`);
         
