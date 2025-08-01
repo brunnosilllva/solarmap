@@ -1,12 +1,4 @@
-<!-- Instrução de uso -->
-        <div class="instruction-banner" style="
-            background: linear-gradient(135deg, #1e3a5f, #2c4a6b);
-            color: white;
-            padding: 20px;
-            margin: 20px 0;
-            border-radius: 10px;
-            text-align: center;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.3);<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
@@ -60,22 +52,6 @@
             </div>
         </div>
 
-        <!-- Instrução de uso -->
-        <div class="instruction-banner" style="
-            background: linear-gradient(135deg, #1e3a5f, #2c4a6b);
-            color: white;
-            padding: 20px;
-            margin: 20px 0;
-            border-radius: 10px;
-            text-align: center;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-            font-size: 16px;
-            font-weight: bold;
-            animation: fadeIn 1s ease-in;
-        ">
-            📍 Para iniciar a execução dos dados nesta plataforma, selecione um bairro de sua preferência e clique em um imóvel de sua escolha para carregar as informações no dashboard.
-        </div>
-
         <!-- Filtros -->
         <div class="filter-container">
             <h3>🔍 Filtros</h3>
@@ -83,7 +59,7 @@
                 <div class="filter-group">
                     <label for="bairro-select">Bairros:</label>
                     <select id="bairro-select">
-                        <option value="">Selecione seu bairro</option>
+                        <option value="">Carregando...</option>
                     </select>
                 </div>
                 <div class="filter-group">
@@ -169,7 +145,7 @@
                     <p id="renda-per-capita-display">0,00</p>
                 </div>
                 <div class="info-card">
-                    <h4>🏡 Renda domiciliar per capita (R$)</h4>
+                    <h4>🏡 Renda domiciliar per capita</h4>
                     <p id="renda-domiciliar-per-capita-display">0,00</p>
                 </div>
                 <div class="info-card invisible"></div>
@@ -237,14 +213,14 @@
     </div>
 
     <!-- Scripts em ordem correta -->
+    <!-- IMPORTANTE: SheetJS para leitura de Excel - ADICIONADO -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
     <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
-
-    <!-- ⭐ NOVO: SheetJS para ler arquivos Excel -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
     <!-- Scripts customizados na ordem correta -->
     <script src="js/dashboard.js"></script>
@@ -252,11 +228,30 @@
     <script src="js/charts.js"></script>
     <script src="js/filters.js"></script>
 
-    <!-- Inicialização única -->
+    <!-- Inicialização única - VERSÃO CORRIGIDA -->
     <script>
-        // Remover inicializações duplicadas
+        // Verificar se todas as dependências estão carregadas
+        function checkDependencies() {
+            const dependencies = [
+                { name: 'Leaflet', check: () => typeof L !== 'undefined' },
+                { name: 'Chart.js', check: () => typeof Chart !== 'undefined' },
+                { name: 'SheetJS', check: () => typeof XLSX !== 'undefined' }
+            ];
+            
+            const missing = dependencies.filter(dep => !dep.check());
+            
+            if (missing.length > 0) {
+                console.warn('⚠️ Dependências faltando:', missing.map(d => d.name).join(', '));
+                return false;
+            }
+            
+            console.log('✅ Todas as dependências carregadas');
+            return true;
+        }
+
+        // Inicialização única e robusta
         document.addEventListener('DOMContentLoaded', function() {
-            console.log('🚀 Inicializando SolarMap Dashboard EXCEL READER...');
+            console.log('🚀 Inicializando SolarMap Dashboard CORRIGIDO...');
 
             // Verificar se já foi inicializado
             if (window.dashboardInitialized) {
@@ -264,15 +259,22 @@
                 return;
             }
 
-            // Marcar como inicializado
-            window.dashboardInitialized = true;
-
-            // Verificar se SheetJS está disponível
-            if (typeof XLSX === 'undefined') {
-                console.error('❌ SheetJS não carregado! Verifique a conexão com internet.');
+            // Verificar dependências
+            if (!checkDependencies()) {
+                console.error('❌ Dependências não carregadas, tentando novamente em 2s...');
+                setTimeout(() => {
+                    if (checkDependencies() && typeof initializeDashboard === 'function') {
+                        window.dashboardInitialized = true;
+                        initializeDashboard();
+                    } else {
+                        console.error('❌ Falha ao carregar dependências após timeout');
+                    }
+                }, 2000);
                 return;
             }
-            console.log('✅ SheetJS disponível para leitura de Excel');
+
+            // Marcar como inicializado
+            window.dashboardInitialized = true;
 
             // Inicializar
             if (typeof initializeDashboard === 'function') {
@@ -280,6 +282,17 @@
             } else {
                 console.error('❌ Função initializeDashboard não encontrada');
             }
+        });
+
+        // Fallback adicional para casos extremos
+        window.addEventListener('load', function() {
+            setTimeout(() => {
+                if (!window.dashboardInitialized && typeof initializeDashboard === 'function') {
+                    console.log('🔄 Executando inicialização fallback...');
+                    window.dashboardInitialized = true;
+                    initializeDashboard();
+                }
+            }, 3000);
         });
     </script>
 </body>
