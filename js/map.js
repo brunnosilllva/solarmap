@@ -115,10 +115,10 @@ function createMapLegend(currentField, minValue, maxValue) {
             "></div>
         `;
         
-        // Labels de valores - CORRIGIDO: Com pontos nos milhares
-        const formatMin = formatNumberWithDots(minValue, 1);
-        const formatMax = formatNumberWithDots(maxValue, 1);
-        const formatMid = formatNumberWithDots((minValue + maxValue) / 2, 1);
+        // Labels de valores - CORRIGIDO: Formato brasileiro correto
+        const formatMin = window.formatarComoExcel ? window.formatarComoExcel(minValue, 1) : minValue.toFixed(1);
+        const formatMax = window.formatarComoExcel ? window.formatarComoExcel(maxValue, 1) : maxValue.toFixed(1);
+        const formatMid = window.formatarComoExcel ? window.formatarComoExcel((minValue + maxValue) / 2, 1) : ((minValue + maxValue) / 2).toFixed(1);
         
         div.innerHTML += `
             <div style="
@@ -394,47 +394,22 @@ function addPolygonsToMap() {
 }
 
 // ================================
-// CRIAR CONTEÚDO DO POPUP - CORRIGIDO CONFORME ESPECIFICAÇÕES
+// CRIAR CONTEÚDO DO POPUP - FORMATAÇÃO BRASILEIRA CORRETA
 // ================================
 function createPopupContent(item) {
     const props = item.properties;
     
-    // Função para formatar valores como aparecem no Excel (sem abreviações)
-    const formatarValorCompleto = (valor) => {
-        if (typeof valor === 'string' && isNaN(parseFloat(valor))) {
-            return valor; // Manter string original
-        }
-        if (valor === 0 || valor === null || valor === undefined) {
-            return '0,00';
-        }
-        // Formato brasileiro completo com separadores de milhar
-        return new Intl.NumberFormat('pt-BR', {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2
-        }).format(valor);
-    };
-    
-    const formatarInteiro = (valor) => {
-        if (valor === 0 || valor === null || valor === undefined) {
-            return '0';
-        }
-        return new Intl.NumberFormat('pt-BR', {
-            minimumFractionDigits: 0,
-            maximumFractionDigits: 0
-        }).format(valor);
-    };
-    
     return `
         <div style="min-width: 280px;">
             <h4 style="margin: 0 0 10px 0; color: #1e3a5f;">
-                🏠 Imóvel ${formatarInteiro(item.id)}
+                🏠 Imóvel ${window.formatarComoExcel ? window.formatarComoExcel(item.id, 0) : item.id}
             </h4>
             <p><strong>Bairro:</strong> ${props.bairro}</p>
-            <p><strong>Área:</strong> ${formatarValorCompleto(props.area_edificacao)} m²</p>
-            <p><strong>Produção:</strong> ${formatarValorCompleto(props.producao_telhado)} kW</p>
-            <p><strong>Radiação:</strong> ${formatarValorCompleto(props.radiacao_max)} kW/m²</p>
-            <p><strong>Placas:</strong> ${formatarInteiro(props.quantidade_placas)} unidades</p>
-            <p><strong>Renda Total:</strong> R$ ${formatarValorCompleto(props.renda_domiciliar_per_capita)}</p>
+            <p><strong>Área:</strong> ${window.formatarComoExcel ? window.formatarComoExcel(props.area_edificacao, 2) : props.area_edificacao} m²</p>
+            <p><strong>Produção:</strong> ${window.formatarComoExcel ? window.formatarComoExcel(props.producao_telhado, 2) : props.producao_telhado} kW</p>
+            <p><strong>Radiação:</strong> ${window.formatarComoExcel ? window.formatarComoExcel(props.radiacao_max, 2) : props.radiacao_max} kW/m²</p>
+            <p><strong>Placas:</strong> ${window.formatarComoExcel ? window.formatarComoExcel(props.quantidade_placas, 0) : props.quantidade_placas} unidades</p>
+            <p><strong>Renda Total:</strong> R$ ${window.formatarComoExcel ? window.formatarComoExcel(props.renda_domiciliar_per_capita, 2) : props.renda_domiciliar_per_capita}</p>
         </div>
     `;
 }
