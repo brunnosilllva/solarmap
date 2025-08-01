@@ -115,10 +115,10 @@ function createMapLegend(currentField, minValue, maxValue) {
             "></div>
         `;
         
-        // Labels de valores - FORMATAÇÃO CORRIGIDA
-        const formatMin = window.formatNumber ? window.formatNumber(minValue, 1) : minValue.toFixed(1);
-        const formatMax = window.formatNumber ? window.formatNumber(maxValue, 1) : maxValue.toFixed(1);
-        const formatMid = window.formatNumber ? window.formatNumber((minValue + maxValue) / 2, 1) : ((minValue + maxValue) / 2).toFixed(1);
+        // Labels de valores - CORRIGIDO: Com pontos nos milhares
+        const formatMin = formatNumberWithDots(minValue, 1);
+        const formatMax = formatNumberWithDots(maxValue, 1);
+        const formatMid = formatNumberWithDots((minValue + maxValue) / 2, 1);
         
         div.innerHTML += `
             <div style="
@@ -293,9 +293,9 @@ function addPolygonsToMap() {
     // Obter dados filtrados
     const dadosFiltrados = window.filtrarDados();
     
-    // Calcular min/max apenas dos dados filtrados USANDO VALORES NUMÉRICOS
+    // Calcular min/max apenas dos dados filtrados
     const values = dadosFiltrados
-        .map(item => item.properties[currentField + '_numerico'] || 0)
+        .map(item => item.properties[currentField] || 0)
         .filter(val => val > 0);
     
     if (values.length === 0) {
@@ -306,13 +306,8 @@ function addPolygonsToMap() {
     const minValue = Math.min(...values);
     const maxValue = Math.max(...values);
 
-    console.log(`🎨 Gradiente por: ${currentField} (${minValue} - ${maxValue})`);
+    console.log(`🎨 Gradiente por: ${currentField} (${formatNumberWithDots(minValue)} - ${formatNumberWithDots(maxValue)})`);
     console.log(`📊 Exibindo ${dadosFiltrados.length} de ${window.dadosCompletos.length} polígonos`);
-    console.log(`📊 Valores numéricos encontrados: ${values.length}`);
-    
-    // DEBUG: Mostrar alguns valores para verificar
-    console.log('🔍 Primeiros 5 valores numéricos:', values.slice(0, 5));
-    console.log('🔍 Últimos 5 valores numéricos:', values.slice(-5));
 
     // Criar legenda
     createMapLegend(currentField, minValue, maxValue);
@@ -331,11 +326,9 @@ function addPolygonsToMap() {
             // Converter coordenadas para formato Leaflet [lat, lng]
             const leafletCoords = item.coordinates.map(coord => [coord[0], coord[1]]);
             
-            // Valor para coloração com gradiente - USAR VALOR NUMÉRICO
-            const fieldValue = item.properties[currentField + '_numerico'] || 0;
+            // Valor para coloração com gradiente
+            const fieldValue = item.properties[currentField] || 0;
             const color = getGradientColor(fieldValue, minValue, maxValue);
-            
-            console.log(`🎨 Imóvel ${item.id}: valor original="${item.properties[currentField]}", numérico=${fieldValue}, cor=${color}`);
 
             // Criar polígono SEM BORDAS
             const polygon = L.polygon(leafletCoords, {
@@ -401,59 +394,47 @@ function addPolygonsToMap() {
 }
 
 // ================================
-// CRIAR CONTEÚDO DO POPUP - DADOS EXATOS DO EXCEL COM FORMATAÇÃO CORRETA
+// CRIAR CONTEÚDO DO POPUP - CORRIGIDO CONFORME ESPECIFICAÇÕES
 // ================================
 function createPopupContent(item) {
-    if (!item.excelData) {
-        return `
-            <div style="min-width: 280px;">
-                <h4 style="margin: 0 0 10px 0; color: #1e3a5f;">
-                    🏠 Imóvel ${item.id}
-                </h4>
-                <p>Dados não disponíveis</p>
-            </div>
-        `;
-    }
+    const props = item.properties;
     
-    const dados = item.excelData;
-    
-    // Buscar campos específicos EXATAMENTE como estão no Excel
-    const buscarCampo = (termosChave) => {
-        for (const termo of termosChave) {
-            for (const [campo, valor] of Object.entries(dados)) {
-                if (campo.toLowerCase().includes(termo.toLowerCase())) {
-                    return valor || '0';
-                }
-            }
+    // Função para formatar valores como aparecem no Excel (sem abreviações)
+    const formatarValorCompleto = (valor) => {
+        if (typeof valor === 'string' && isNaN(parseFloat(valor))) {
+            return valor; // Manter string original
         }
-        return '0';
+        if (valor === 0 || valor === null || valor === undefined) {
+            return '0,00';
+        }
+        // Formato brasileiro completo com separadores de milhar
+        return new Intl.NumberFormat('pt-BR', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        }).format(valor);
     };
     
-    const bairro = buscarCampo(['bairros', 'bairro']);
-    const area = buscarCampo(['área em metros quadrados', 'área', 'area']);
-    const producao = buscarCampo(['produção de energia kw do telhado', 'produção', 'producao']);
-    const radiacao = buscarCampo(['quantidade de radiação máxima solar', 'radiação', 'radiacao']);
-    const placas = buscarCampo(['quantidade de placas fotovoltaicas', 'placas']);
-    const rendaTotal = buscarCampo(['renda domiciliar per capita', 'renda total']);
-    
-    console.log(`🔍 Popup Imóvel ${item.id}:`);
-    console.log(`  Produção original: "${producao}"`);
-    console.log(`  Produção numérica: ${item.properties.producao_telhado_numerico}`);
-    console.log(`  Área original: "${area}"`);
-    console.log(`  Área numérica: ${item.properties.area_edificacao_numerico}`);
+    const formatarInteiro = (valor) => {
+        if (valor === 0 || valor === null || valor === undefined) {
+            return '0';
+        }
+        return new Intl.NumberFormat('pt-BR', {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0
+        }).format(valor);
+    };
     
     return `
         <div style="min-width: 280px;">
             <h4 style="margin: 0 0 10px 0; color: #1e3a5f;">
-                🏠 Imóvel ${item.id}
+                🏠 Imóvel ${formatarInteiro(item.id)}
             </h4>
-            <p><strong>Bairro:</strong> ${bairro}</p>
-            <p><strong>Área:</strong> ${area} m²</p>
-            <p><strong>Produção:</strong> ${producao} kW</p>
-            <p><strong>Radiação:</strong> ${radiacao} kW/m²</p>
-            <p><strong>Placas:</strong> ${placas} unidades</p>
-            <p><strong>Renda Total:</strong> R$ ${rendaTotal}</p>
-            <p><small><em>Valor numérico produção: ${item.properties.producao_telhado_numerico || 0}</em></small></p>
+            <p><strong>Bairro:</strong> ${props.bairro}</p>
+            <p><strong>Área:</strong> ${formatarValorCompleto(props.area_edificacao)} m²</p>
+            <p><strong>Produção:</strong> ${formatarValorCompleto(props.producao_telhado)} kW</p>
+            <p><strong>Radiação:</strong> ${formatarValorCompleto(props.radiacao_max)} kW/m²</p>
+            <p><strong>Placas:</strong> ${formatarInteiro(props.quantidade_placas)} unidades</p>
+            <p><strong>Renda Total:</strong> R$ ${formatarValorCompleto(props.renda_domiciliar_per_capita)}</p>
         </div>
     `;
 }
