@@ -371,35 +371,7 @@ function normalizeExcelData(row) {
         'Potencial médio de geração FV em um dia (kW.dia.m²)': 'potencial_medio_dia',
         'Renda Total': 'renda_total',
         'Renda per capita': 'renda_per_capita',
-        'Renda domiciliar per capita': 'renda_domiciliar_per_capita',
-        
-        // DADOS MENSAIS DE PRODUÇÃO
-        'Produção de energia no mês de janeiro kW do telhado do edifício': 'producao_janeiro',
-        'Produção de energia no mês de fevereiro kW do telhado do edifício': 'producao_fevereiro',
-        'Produção de energia no mês de março kW do telhado do edifício': 'producao_marco',
-        'Produção de energia no mês de abril kW do telhado do edifício': 'producao_abril',
-        'Produção de energia no mês de maio kW do telhado do edifício': 'producao_maio',
-        'Produção de energia no mês de junho kW do telhado do edifício': 'producao_junho',
-        'Produção de energia no mês de julho kW do telhado do edifício': 'producao_julho',
-        'Produção de energia no mês de agosto kW do telhado do edifício': 'producao_agosto',
-        'Produção de energia no mês de setembro kW do telhado do edifício': 'producao_setembro',
-        'Produção de energia no mês de outubro kW do telhado do edifício': 'producao_outubro',
-        'Produção de energia no mês de novembro kW do telhado do edifício': 'producao_novembro',
-        'Produção de energia no mês de dezembro kW do telhado do edifício': 'producao_dezembro',
-        
-        // NOVO: DADOS MENSAIS DE RADIAÇÃO
-        'Quantidade de Radiação Solar no mês de janeiro (kW.m²)': 'radiacao_janeiro',
-        'Quantidade de Radiação Solar no mês de fevereiro (kW.m²)': 'radiacao_fevereiro',
-        'Quantidade de Radiação Solar no mês de março (kW.m²)': 'radiacao_marco',
-        'Quantidade de Radiação Solar no mês de abril (kW.m²)': 'radiacao_abril',
-        'Quantidade de Radiação Solar no mês de maio (kW.m²)': 'radiacao_maio',
-        'Quantidade de Radiação Solar no mês de junho (kW.m²)': 'radiacao_junho',
-        'Quantidade de Radiação Solar no mês de julho (kW.m²)': 'radiacao_julho',
-        'Quantidade de Radiação Solar no mês de agosto (kW.m²)': 'radiacao_agosto',
-        'Quantidade de Radiação Solar no mês de setembro (kW.m²)': 'radiacao_setembro',
-        'Quantidade de Radiação Solar no mês de outubro (kW.m²)': 'radiacao_outubro',
-        'Quantidade de Radiação Solar no mês de novembro (kW.m²)': 'radiacao_novembro',
-        'Quantidade de Radiação Solar no mês de dezembro (kW.m²)': 'radiacao_dezembro'
+        'Renda domiciliar per capita': 'renda_domiciliar_per_capita'
     };
 
     const normalized = {};
@@ -410,22 +382,14 @@ function normalizeExcelData(row) {
         
         if (value !== null && value !== undefined && value !== '') {
             if (typeof value === 'string' && value.length > 0) {
-                // CORRIGIDO: Preservar valores originais para campos de renda
-                if (key.includes('Renda') || key.includes('renda')) {
-                    // Para valores de renda, manter como string se não for numérico
-                    const cleanValue = value.toString().replace(/[^\d,.-]/g, '').replace(',', '.');
-                    const numValue = parseFloat(cleanValue);
-                    normalized[normalizedKey] = isNaN(numValue) ? value : numValue;
-                } else {
-                    // Para outros campos, tentar converter para número
-                    const cleanValue = value
-                        .toString()
-                        .replace(/\./g, '')
-                        .replace(',', '.')
-                        .replace(/[^\d.-]/g, '');
-                    const numValue = parseFloat(cleanValue);
-                    normalized[normalizedKey] = isNaN(numValue) ? value : numValue;
-                }
+                // Tentar converter strings numéricas
+                const cleanValue = value
+                    .toString()
+                    .replace(/\./g, '')
+                    .replace(',', '.')
+                    .replace(/[^\d.-]/g, '');
+                const numValue = parseFloat(cleanValue);
+                normalized[normalizedKey] = isNaN(numValue) ? value : numValue;
             } else if (typeof value === 'number') {
                 normalized[normalizedKey] = value;
             } else {
@@ -435,51 +399,6 @@ function normalizeExcelData(row) {
             normalized[normalizedKey] = 0;
         }
     });
-    
-    // NOVO: Criar arrays dos dados mensais REAIS
-    const dadosMensaisProducao = [
-        normalized.producao_janeiro || 0,
-        normalized.producao_fevereiro || 0,
-        normalized.producao_marco || 0,
-        normalized.producao_abril || 0,
-        normalized.producao_maio || 0,
-        normalized.producao_junho || 0,
-        normalized.producao_julho || 0,
-        normalized.producao_agosto || 0,
-        normalized.producao_setembro || 0,
-        normalized.producao_outubro || 0,
-        normalized.producao_novembro || 0,
-        normalized.producao_dezembro || 0
-    ];
-    
-    const dadosMensaisRadiacao = [
-        normalized.radiacao_janeiro || 0,
-        normalized.radiacao_fevereiro || 0,
-        normalized.radiacao_marco || 0,
-        normalized.radiacao_abril || 0,
-        normalized.radiacao_maio || 0,
-        normalized.radiacao_junho || 0,
-        normalized.radiacao_julho || 0,
-        normalized.radiacao_agosto || 0,
-        normalized.radiacao_setembro || 0,
-        normalized.radiacao_outubro || 0,
-        normalized.radiacao_novembro || 0,
-        normalized.radiacao_dezembro || 0
-    ];
-    
-    // Adicionar arrays ao objeto normalizado
-    normalized.dados_mensais_producao = dadosMensaisProducao;
-    normalized.dados_mensais_radiacao = dadosMensaisRadiacao;
-    
-    // Debug para verificar dados mensais
-    const temProducao = dadosMensaisProducao.some(valor => valor > 0);
-    const temRadiacao = dadosMensaisRadiacao.some(valor => valor > 0);
-    
-    if (temProducao || temRadiacao) {
-        console.log(`✅ Dados mensais REAIS para OBJECTID ${normalized.objectid}:`);
-        if (temProducao) console.log('   📊 Produção:', dadosMensaisProducao.slice(0, 3), '...');
-        if (temRadiacao) console.log('   ☀️ Radiação:', dadosMensaisRadiacao.slice(0, 3), '...');
-    }
     
     // Buscar campos alternativos para campos zerados
     if (!normalized.radiacao_max || normalized.radiacao_max === 0) {
@@ -707,11 +626,7 @@ function combineProperties(geoItem, excelData, objectId) {
         potencial_medio_dia: excelData?.potencial_medio_dia || 0,
         renda_total: excelData?.renda_total || 0,
         renda_per_capita: excelData?.renda_per_capita || 0,
-        renda_domiciliar_per_capita: excelData?.renda_domiciliar_per_capita || 0,
-        
-        // NOVO: Adicionar dados mensais reais de produção e radiação
-        dados_mensais_producao: excelData?.dados_mensais_producao || new Array(12).fill(0),
-        dados_mensais_radiacao: excelData?.dados_mensais_radiacao || new Array(12).fill(0)
+        renda_domiciliar_per_capita: excelData?.renda_domiciliar_per_capita || 0
     };
     
     return combined;
