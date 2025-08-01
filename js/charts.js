@@ -147,6 +147,14 @@ function initProducaoChart() {
                     borderColor: '#E74C3C',
                     borderWidth: 1,
                     callbacks: {
+                        label: function(context) {
+                            const valor = context.raw;
+                            const label = context.dataset.label || '';
+                            const valorFormatado = window.formatarComoExcel ? 
+                                window.formatarComoExcel(valor, 2) : 
+                                valor.toFixed(2);
+                            return `${label}: ${valorFormatado} kW`;
+                        },
                         afterBody: function(context) {
                             if (window.imovelSelecionado) {
                                 return `Bairro: ${window.imovelSelecionado.properties.bairro}`;
@@ -289,6 +297,14 @@ function initRadiacaoChart() {
                     borderColor: '#F39C12',
                     borderWidth: 1,
                     callbacks: {
+                        label: function(context) {
+                            const valor = context.raw;
+                            const label = context.dataset.label || '';
+                            const valorFormatado = window.formatarComoExcel ? 
+                                window.formatarComoExcel(valor, 2) : 
+                                valor.toFixed(2);
+                            return `${label}: ${valorFormatado} kW/m²`;
+                        },
                         afterBody: function(context) {
                             if (window.imovelSelecionado) {
                                 return `Bairro: ${window.imovelSelecionado.properties.bairro}`;
