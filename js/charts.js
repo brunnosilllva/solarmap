@@ -358,18 +358,31 @@ function updateCharts(imovel = null) {
         const temDadosReais = props.dados_mensais_producao.some(valor => valor > 0);
         if (temDadosReais) {
             producaoMensal = props.dados_mensais_producao;
-            console.log('✅ Usando dados mensais REAIS:', producaoMensal);
+            console.log('✅ Usando dados mensais REAIS de produção:', producaoMensal);
         } else {
             producaoMensal = generateMockMonthlyData(props.producao_telhado || 0);
-            console.log('⚠️ Dados mensais zerados, usando simulação baseada em:', props.producao_telhado);
+            console.log('⚠️ Dados mensais de produção zerados, usando simulação baseada em:', props.producao_telhado);
         }
     } else {
         producaoMensal = generateMockMonthlyData(props.producao_telhado || 0);
-        console.log('⚠️ Dados mensais não encontrados, usando simulação baseada em:', props.producao_telhado);
+        console.log('⚠️ Dados mensais de produção não encontrados, usando simulação baseada em:', props.producao_telhado);
     }
     
-    // Para radiação, sempre simular (não temos dados mensais reais)
-    const radiacaoMensal = generateMockMonthlyData(props.radiacao_max || 0);
+    // NOVO: Para radiação, usar dados mensais reais se disponíveis
+    let radiacaoMensal;
+    if (props.dados_mensais_radiacao && props.dados_mensais_radiacao.length === 12) {
+        const temDadosReaisRadiacao = props.dados_mensais_radiacao.some(valor => valor > 0);
+        if (temDadosReaisRadiacao) {
+            radiacaoMensal = props.dados_mensais_radiacao;
+            console.log('✅ Usando dados mensais REAIS de radiação:', radiacaoMensal);
+        } else {
+            radiacaoMensal = generateMockMonthlyData(props.radiacao_max || 0);
+            console.log('⚠️ Dados mensais de radiação zerados, usando simulação baseada em:', props.radiacao_max);
+        }
+    } else {
+        radiacaoMensal = generateMockMonthlyData(props.radiacao_max || 0);
+        console.log('⚠️ Dados mensais de radiação não encontrados, usando simulação baseada em:', props.radiacao_max);
+    }
     
     // Obter médias do bairro
     const mediaDoBairro = window.getMediaDoBairro ? window.getMediaDoBairro(bairro) : {
