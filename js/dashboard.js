@@ -75,7 +75,7 @@ const SIRGAS_2000_UTM_23S = {
 };
 
 // ================================
-// FUNÇÃO DE FORMATAÇÃO BRASILEIRA MANUAL (GARANTIDA)
+// FUNÇÃO DE FORMATAÇÃO EXATAMENTE COMO NO EXCEL
 // ================================
 function formatNumber(numero, decimais = 2) {
     if (numero === null || numero === undefined || numero === '' || isNaN(numero)) {
@@ -84,79 +84,25 @@ function formatNumber(numero, decimais = 2) {
     
     let valor = numero;
     
-    // Se for string, converter para número
+    // Se for string, tentar converter mantendo formato original
     if (typeof numero === 'string') {
-        valor = converterParaNumero(numero);
+        // Se já está no formato brasileiro, manter
+        if (numero.includes('.') && numero.includes(',')) {
+            return numero;
+        }
+        
+        // Tentar converter
+        valor = parseFloat(numero.replace(/\./g, '').replace(',', '.'));
         if (isNaN(valor)) {
             return numero; // Retornar string original se não conseguir converter
         }
     }
     
-    // FORMATAÇÃO BRASILEIRA MANUAL
-    const valorFixo = parseFloat(valor).toFixed(decimais);
-    const [parteInteira, parteDecimal] = valorFixo.split('.');
-    
-    // Adicionar pontos a cada 3 dígitos da direita para a esquerda
-    const inteiraFormatada = parteInteira.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-    
-    // Retornar no formato brasileiro: 1.234,56
-    if (decimais > 0) {
-        return inteiraFormatada + ',' + parteDecimal;
-    } else {
-        return inteiraFormatada;
-    }
-}
-
-// Função auxiliar para teste
-function testarFormatacao() {
-    console.log('🧪 === TESTE DE FORMATAÇÃO BRASILEIRA ===');
-    console.log('7028 →', formatNumber(7028, 2));           // Deve dar: 7.028,00
-    console.log('1234567 →', formatNumber(1234567, 2));     // Deve dar: 1.234.567,00  
-    console.log('848 →', formatNumber(848, 2));             // Deve dar: 848,00
-    console.log('7028.5 →', formatNumber(7028.5, 2));       // Deve dar: 7.028,50
-    console.log('0 →', formatNumber(0, 2));                 // Deve dar: 0,00
-}
-
-// NOVA: Função para converter strings brasileiras em números
-function converterParaNumero(valor) {
-    if (typeof valor === 'number') {
-        return valor;
-    }
-    
-    if (typeof valor !== 'string') {
-        return 0;
-    }
-    
-    // Remover espaços
-    let limpo = valor.toString().trim();
-    
-    // FORMATO BRASILEIRO: 1.234.567,89
-    if (limpo.includes('.') && limpo.includes(',')) {
-        // Pontos são separadores de milhar, vírgula é decimal
-        limpo = limpo.replace(/\./g, '').replace(',', '.');
-    }
-    // Se tem só vírgula: 1234,56 → 1234.56
-    else if (limpo.includes(',') && !limpo.includes('.')) {
-        limpo = limpo.replace(',', '.');
-    }
-    // Se tem só pontos, verificar se é milhar ou decimal
-    else if (limpo.includes('.')) {
-        const pontos = (limpo.match(/\./g) || []).length;
-        if (pontos > 1) {
-            // Múltiplos pontos = separadores de milhar
-            limpo = limpo.replace(/\./g, '');
-        } else {
-            // Um ponto pode ser milhar (7.028) ou decimal (7.28)
-            // Se tem 3 dígitos após o ponto, é milhar
-            if (limpo.match(/\.\d{3}$/)) {
-                limpo = limpo.replace('.', '');
-            }
-            // Senão, manter como decimal
-        }
-    }
-    
-    const numero = parseFloat(limpo);
-    return isNaN(numero) ? 0 : numero;
+    // Formatação brasileira padrão
+    return new Intl.NumberFormat('pt-BR', {
+        minimumFractionDigits: decimais,
+        maximumFractionDigits: decimais
+    }).format(valor);
 }
 
 function showMessage(message) {
@@ -284,93 +230,38 @@ async function loadExcelData() {
         const workbook = XLSX.read(arrayBuffer, {
             type: 'array',
             cellDates: false,      // Não converter datas automaticamente
-            cellStyles: false,     // Não precisa de estilos
+            cellStyles: true,      // Manter estilos
             cellFormulas: false,   // Não processar fórmulas
             raw: false,           // NÃO converter valores - manter como string
-            dateNF: 'dd/mm/yyyy', // Formato de data brasileiro
-            sheetRows: 0          // Ler todas as linhas
+            dateNF: 'dd/mm/yyyy'  // Formato de data brasileiro
         });
         
         const firstSheetName = workbook.SheetNames[0];
         console.log(`📋 Processando planilha: ${firstSheetName}`);
-        console.log(`📋 Planilhas disponíveis: ${workbook.SheetNames.join(', ')}`);
         
         const worksheet = workbook.Sheets[firstSheetName];
         
-        // DEBUG: Verificar estrutura da planilha
-        console.log('📋 Estrutura da planilha:', Object.keys(worksheet).slice(0, 10));
-        console.log('📋 Range da planilha:', worksheet['!ref']);
-        
-        // Tentar diferentes métodos de extração
-        let jsonData;
-        
-        // Método 1: Com headers automáticos
-        const metodo1 = XLSX.utils.sheet_to_json(worksheet, {
+        // Converter para JSON mantendo formato original
+        const jsonData = XLSX.utils.sheet_to_json(worksheet, {
             header: 1,
-            defval: '',
-            raw: false,
-            range: undefined
+            defval: '',           // Valor padrão para células vazias
+            raw: false,          // IMPORTANTE: Manter formatação original
+            dateNF: 'dd/mm/yyyy'
         });
-        
-        console.log(`📋 Método 1 - Linhas extraídas: ${metodo1.length}`);
-        if (metodo1.length > 0) {
-            console.log('📋 Primeira linha:', metodo1[0]);
-            console.log('📋 Segunda linha:', metodo1[1]);
-        }
-        
-        // Método 2: Sem headers
-        const metodo2 = XLSX.utils.sheet_to_json(worksheet, {
-            header: 'A',
-            defval: '',
-            raw: false
-        });
-        
-        console.log(`📋 Método 2 - Registros extraídos: ${metodo2.length}`);
-        if (metodo2.length > 0) {
-            console.log('📋 Primeiro registro método 2:', Object.keys(metodo2[0]).slice(0, 5));
-        }
-        
-        // Escolher método que funcionar melhor
-        if (metodo1.length > 1) {
-            jsonData = metodo1;
-            console.log('✅ Usando método 1 (header: 1)');
-        } else if (metodo2.length > 0) {
-            jsonData = Object.values(metodo2);
-            console.log('✅ Usando método 2 (header: A)');
-        } else {
-            throw new Error('❌ Nenhum método conseguiu extrair dados da planilha');
-        }
-        
-        console.log(`📋 Dados brutos extraídos: ${jsonData.length} linhas`);
         
         if (jsonData.length === 0) {
             throw new Error('❌ Planilha Excel está vazia');
         }
         
-        // Verificar se a primeira linha tem dados
-        if (jsonData.length < 2) {
-            console.error('❌ Planilha só tem headers, sem dados');
-            console.log('Primeira linha (headers):', jsonData[0]);
-            throw new Error('❌ Planilha não tem dados, apenas headers');
-        }
-        
         // Primeira linha são os headers
         const headers = jsonData[0];
-        console.log(`📋 Headers encontrados (${headers.length}):`, headers.slice(0, 5), '...');
-        
-        // Verificar se headers estão vazios
-        if (!headers || headers.length === 0 || headers.every(h => !h)) {
-            console.error('❌ Headers estão vazios ou inválidos');
-            console.log('Headers recebidos:', headers);
-            throw new Error('❌ Headers do Excel estão vazios');
-        }
+        console.log(`📋 Headers encontrados (${headers.length}):`, headers.slice(0, 10), '...');
         
         // Converter dados em objetos PRESERVANDO FORMATO ORIGINAL
         const dataObjects = [];
         for (let i = 1; i < jsonData.length; i++) {
             const row = jsonData[i];
             const obj = {};
-            let temDados = false;
             
             headers.forEach((header, index) => {
                 if (header && header.toString().trim()) {
@@ -378,28 +269,19 @@ async function loadExcelData() {
                     
                     // PRESERVAR VALOR EXATAMENTE COMO ESTÁ NO EXCEL
                     if (valor !== null && valor !== undefined && valor !== '') {
-                        obj[header.toString().trim()] = valor;
-                        temDados = true;
+                        obj[header.toString().trim()] = valor; // Manter valor original
                     } else {
                         obj[header.toString().trim()] = '';
                     }
                 }
             });
             
-            // Só adicionar se a linha tem pelo menos alguns dados
-            if (temDados && Object.keys(obj).length > 0) {
+            if (Object.keys(obj).length > 0) {
                 dataObjects.push(obj);
             }
         }
         
-        console.log(`✅ Excel processado: ${dataObjects.length} registros válidos`);
-        
-        if (dataObjects.length === 0) {
-            console.error('❌ Nenhum registro válido encontrado no Excel');
-            console.log('Exemplo de linha de dados:', jsonData[1]);
-            console.log('Headers:', headers);
-            throw new Error('❌ Excel não contém dados válidos');
-        }
+        console.log(`✅ Excel processado: ${dataObjects.length} registros`);
         
         // DEBUG: Mostrar primeiro registro com valores originais
         if (dataObjects.length > 0) {
@@ -408,18 +290,6 @@ async function loadExcelData() {
             Object.entries(exemplo).slice(0, 10).forEach(([campo, valor]) => {
                 console.log(`  ${campo}: "${valor}" (tipo: ${typeof valor})`);
             });
-            
-            // Verificar se tem OBJECTID
-            const objectIdFields = ['OBJECTID', 'ObjectID', 'objectid', 'FID', 'ID'];
-            const temObjectId = objectIdFields.some(field => exemplo.hasOwnProperty(field));
-            console.log('✅ Tem campo de ID?', temObjectId);
-            
-            if (!temObjectId) {
-                console.warn('⚠️ ATENÇÃO: Não foi encontrado campo OBJECTID nos dados');
-                console.log('Campos disponíveis:', Object.keys(exemplo));
-            }
-        } else {
-            console.error('❌ Nenhum registro foi processado do Excel');
         }
         
         // Normalizar dados PRESERVANDO valores originais
@@ -428,25 +298,7 @@ async function loadExcelData() {
         
     } catch (error) {
         console.error('❌ Erro ao carregar Excel:', error);
-        
-        // FALLBACK: Tentar carregar JSON como backup
-        console.log('🔄 Tentando fallback para JSON...');
-        try {
-            const jsonResponse = await fetch('data/Dados_energia_solar.json');
-            if (!jsonResponse.ok) {
-                throw new Error(`JSON também não encontrado: ${jsonResponse.status}`);
-            }
-            
-            const jsonData = await jsonResponse.json();
-            console.log(`✅ JSON fallback carregado: ${jsonData.length} registros`);
-            
-            dadosExcel = jsonData.map(row => normalizeExcelDataPreservandoOriginal(row));
-            console.log(`✅ Dados JSON normalizados: ${dadosExcel.length} registros`);
-            
-        } catch (jsonError) {
-            console.error('❌ Fallback JSON também falhou:', jsonError);
-            throw new Error(`Não foi possível carregar dados Excel nem JSON: ${error.message}`);
-        }
+        throw error;
     }
 }
 
@@ -845,7 +697,7 @@ function selecionarImovel(imovelId) {
     }
 }
 
-// CARDS DE INFORMAÇÕES - FORMATAÇÃO BRASILEIRA CORRETA
+// CARDS DE INFORMAÇÕES - USANDO DADOS EXATOS DO EXCEL
 function updateInfoCards(imovel = null) {
     if (!imovel || !imovel.excelData) {
         // Limpar cards se não houver dados
@@ -902,32 +754,30 @@ function updateInfoCards(imovel = null) {
         renda_domiciliar: buscarCampo(['Renda domiciliar per capita', 'renda domiciliar'])
     };
     
-    // Aplicar valores com FORMATAÇÃO BRASILEIRA CORRETA
+    // Aplicar valores EXATOS nos cards
     const elementos = {
-        'area-edificacao-display': valores.area ? formatNumber(valores.area, 2) : '0,00',
-        'radiacao-max-display': valores.radiacao ? formatNumber(valores.radiacao, 2) : '0,00',
-        'capacidade-por-m2-display': valores.capacidade ? formatNumber(valores.capacidade, 2) : '0,00',
-        'producao-telhado-display': valores.producao ? formatNumber(valores.producao, 2) : '0,00',
-        'capacidade-placas-dia-display': valores.placas_dia ? formatNumber(valores.placas_dia, 2) : '0,00',
-        'capacidade-placas-mes-display': valores.placas_mes ? formatNumber(valores.placas_mes, 2) : '0,00',
-        'quantidade-placas-display': valores.quantidade_placas ? formatNumber(valores.quantidade_placas, 0) : '0',
-        'potencial-medio-dia-display': valores.potencial ? formatNumber(valores.potencial, 2) : '0,00',
-        'renda-total-display': valores.renda_total ? formatNumber(valores.renda_total, 2) : '0,00',
-        'renda-per-capita-display': valores.renda_per_capita ? formatNumber(valores.renda_per_capita, 2) : '0,00',
-        'renda-domiciliar-per-capita-display': valores.renda_domiciliar ? formatNumber(valores.renda_domiciliar, 2) : '0,00'
+        'area-edificacao-display': valores.area,
+        'radiacao-max-display': valores.radiacao,
+        'capacidade-por-m2-display': valores.capacidade,
+        'producao-telhado-display': valores.producao,
+        'capacidade-placas-dia-display': valores.placas_dia,
+        'capacidade-placas-mes-display': valores.placas_mes,
+        'quantidade-placas-display': valores.quantidade_placas,
+        'potencial-medio-dia-display': valores.potencial,
+        'renda-total-display': valores.renda_total,
+        'renda-per-capita-display': valores.renda_per_capita,
+        'renda-domiciliar-per-capita-display': valores.renda_domiciliar
     };
     
-    Object.entries(elementos).forEach(([id, valorFormatado]) => {
+    Object.entries(elementos).forEach(([id, valor]) => {
         const elemento = document.getElementById(id);
         if (elemento) {
-            elemento.textContent = valorFormatado;
+            // Usar valor EXATO do Excel - sem conversão
+            elemento.textContent = valor || '0,00';
         }
     });
     
-    console.log('✅ Cards atualizados com FORMATAÇÃO BRASILEIRA CORRETA');
-    console.log('📊 Exemplos de formatação:');
-    console.log(`  Área original: "${valores.area}" → Formatado: "${elementos['area-edificacao-display']}"`);
-    console.log(`  Produção original: "${valores.producao}" → Formatado: "${elementos['producao-telhado-display']}"`);
+    console.log('✅ Cards atualizados com valores EXATOS do Excel');
 }
 
 function updateRelatorio(imovel = null) {
@@ -1064,9 +914,6 @@ async function initializeDashboard() {
         initializeFilters();
         initializeEvents();
         console.log('✅ Dashboard EXCEL REAL inicializado!');
-        
-        // TESTE DA FORMATAÇÃO BRASILEIRA
-        testarFormatacao();
         
         // TESTE DOS DADOS
         console.log('🔍 === TESTE DOS DADOS CARREGADOS ===');
