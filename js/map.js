@@ -394,32 +394,47 @@ function addPolygonsToMap() {
 }
 
 // ================================
-// CRIAR CONTEÚDO DO POPUP - FORMATAÇÃO CORRIGIDA
+// CRIAR CONTEÚDO DO POPUP - CORRIGIDO CONFORME ESPECIFICAÇÕES
 // ================================
 function createPopupContent(item) {
     const props = item.properties;
     
-    // CORRIGIDO: Formatar valores de renda como string se não forem numéricos
-    const formatRenda = (valor) => {
+    // Função para formatar valores como aparecem no Excel (sem abreviações)
+    const formatarValorCompleto = (valor) => {
         if (typeof valor === 'string' && isNaN(parseFloat(valor))) {
-            return valor; // Manter como string original
+            return valor; // Manter string original
         }
-        return formatNumberWithDots(valor);
+        if (valor === 0 || valor === null || valor === undefined) {
+            return '0,00';
+        }
+        // Formato brasileiro completo com separadores de milhar
+        return new Intl.NumberFormat('pt-BR', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        }).format(valor);
+    };
+    
+    const formatarInteiro = (valor) => {
+        if (valor === 0 || valor === null || valor === undefined) {
+            return '0';
+        }
+        return new Intl.NumberFormat('pt-BR', {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0
+        }).format(valor);
     };
     
     return `
-        <div style="min-width: 250px;">
+        <div style="min-width: 280px;">
             <h4 style="margin: 0 0 10px 0; color: #1e3a5f;">
-                🏠 Imóvel ${formatNumberWithDots(item.id, 0)}
+                🏠 Imóvel ${formatarInteiro(item.id)}
             </h4>
             <p><strong>Bairro:</strong> ${props.bairro}</p>
-            <p><strong>Área:</strong> ${formatNumberWithDots(props.area_edificacao)} m²</p>
-            <p><strong>Produção:</strong> ${formatNumberWithDots(props.producao_telhado)} kW</p>
-            <p><strong>Radiação:</strong> ${formatNumberWithDots(props.radiacao_max)} kW/m²</p>
-            <p><strong>Placas:</strong> ${formatNumberWithDots(props.quantidade_placas, 0)} unidades</p>
-            <p><strong>Renda Total:</strong> R$ ${formatRenda(props.renda_total)}</p>
-            <p><strong>Renda Per Capita:</strong> R$ ${formatRenda(props.renda_per_capita)}</p>
-            <p><strong>Renda Domiciliar:</strong> R$ ${formatRenda(props.renda_domiciliar_per_capita)}</p>
+            <p><strong>Área:</strong> ${formatarValorCompleto(props.area_edificacao)} m²</p>
+            <p><strong>Produção:</strong> ${formatarValorCompleto(props.producao_telhado)} kW</p>
+            <p><strong>Radiação:</strong> ${formatarValorCompleto(props.radiacao_max)} kW/m²</p>
+            <p><strong>Placas:</strong> ${formatarInteiro(props.quantidade_placas)} unidades</p>
+            <p><strong>Renda Total:</strong> R$ ${formatarValorCompleto(props.renda_domiciliar_per_capita)}</p>
         </div>
     `;
 }
