@@ -10,10 +10,10 @@ let selectedPolygon = null;
 let legendControl = null;
 let allPolygons = [];
 
-// Cores mais claras para o gradiente (10% mais claro no laranja)
+// Cores NOVAS: Amarelo queimado → Laranja → Vermelho vivo
 const GRADIENT_COLORS = [
-    '#FFF5E6', '#FFE4CC', '#FFD4A3', '#FFC080',  // Laranjas 10% mais claros
-    '#FF9500', '#FF7F00', '#FF6500', '#FF4500'   // Tons originais para o vermelho
+    '#DAA520', '#FF8C00', '#FF7F00', '#FF6500',  // Amarelo queimado → Laranja
+    '#FF4500', '#FF2500', '#FF0000', '#DC143C'   // Laranja → Vermelho vivo
 ];
 
 // ================================
