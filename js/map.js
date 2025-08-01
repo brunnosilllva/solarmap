@@ -10,10 +10,10 @@ let selectedPolygon = null;
 let legendControl = null;
 let allPolygons = [];
 
-// Cores NOVAS: Amarelo queimado → Laranja → Vermelho vivo
+// Cores mais claras para o gradiente (10% mais claro no laranja)
 const GRADIENT_COLORS = [
-    '#DAA520', '#FF8C00', '#FF7F00', '#FF6500',  // Amarelo queimado → Laranja
-    '#FF4500', '#FF2500', '#FF0000', '#DC143C'   // Laranja → Vermelho vivo
+    '#FFF5E6', '#FFE4CC', '#FFD4A3', '#FFC080',  // Laranjas 10% mais claros
+    '#FF9500', '#FF7F00', '#FF6500', '#FF4500'   // Tons originais para o vermelho
 ];
 
 // ================================
@@ -394,47 +394,22 @@ function addPolygonsToMap() {
 }
 
 // ================================
-// CRIAR CONTEÚDO DO POPUP - CORRIGIDO CONFORME ESPECIFICAÇÕES
+// CRIAR CONTEÚDO DO POPUP - FORMATAÇÃO CORRIGIDA
 // ================================
 function createPopupContent(item) {
     const props = item.properties;
     
-    // Função para formatar valores como aparecem no Excel (sem abreviações)
-    const formatarValorCompleto = (valor) => {
-        if (typeof valor === 'string' && isNaN(parseFloat(valor))) {
-            return valor; // Manter string original
-        }
-        if (valor === 0 || valor === null || valor === undefined) {
-            return '0,00';
-        }
-        // Formato brasileiro completo com separadores de milhar
-        return new Intl.NumberFormat('pt-BR', {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2
-        }).format(valor);
-    };
-    
-    const formatarInteiro = (valor) => {
-        if (valor === 0 || valor === null || valor === undefined) {
-            return '0';
-        }
-        return new Intl.NumberFormat('pt-BR', {
-            minimumFractionDigits: 0,
-            maximumFractionDigits: 0
-        }).format(valor);
-    };
-    
     return `
-        <div style="min-width: 280px;">
+        <div style="min-width: 250px;">
             <h4 style="margin: 0 0 10px 0; color: #1e3a5f;">
-                🏠 Imóvel ${formatarInteiro(item.id)}
+                🏠 Imóvel ${formatNumberWithDots(item.id, 0)}
             </h4>
             <p><strong>Bairro:</strong> ${props.bairro}</p>
-            <p><strong>Área:</strong> ${formatarValorCompleto(props.area_edificacao)} m²</p>
-            <p><strong>Produção:</strong> ${formatarValorCompleto(props.producao_telhado)} kW</p>
-            <p><strong>Radiação:</strong> ${formatarValorCompleto(props.radiacao_max)} kW/m²</p>
-            <p><strong>Placas:</strong> ${formatarInteiro(props.quantidade_placas)} unidades</p>
-            <p><strong>Renda Total:</strong> R$ ${formatarValorCompleto(props.renda_domiciliar_per_capita)}</p>
+            <p><strong>Área:</strong> ${formatNumberWithDots(props.area_edificacao)} m²</p>
+            <p><strong>Produção:</strong> ${formatNumberWithDots(props.producao_telhado)} kW</p>
+            <p><strong>Radiação:</strong> ${formatNumberWithDots(props.radiacao_max)} kW/m²</p>
+            <p><strong>Placas:</strong> ${formatNumberWithDots(props.quantidade_placas, 0)} unidades</p>
+            <p><strong>Renda Total:</strong> R$ ${formatNumberWithDots(props.renda_domiciliar_per_capita)}</p>
         </div>
     `;
 }
