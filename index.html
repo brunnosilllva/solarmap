@@ -1,4 +1,12 @@
-<!DOCTYPE html>
+<!-- Instrução de uso -->
+        <div class="instruction-banner" style="
+            background: linear-gradient(135deg, #1e3a5f, #2c4a6b);
+            color: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
@@ -52,6 +60,22 @@
             </div>
         </div>
 
+        <!-- Instrução de uso -->
+        <div class="instruction-banner" style="
+            background: linear-gradient(135deg, #1e3a5f, #2c4a6b);
+            color: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            font-size: 16px;
+            font-weight: bold;
+            animation: fadeIn 1s ease-in;
+        ">
+            📍 Para iniciar a execução dos dados nesta plataforma, selecione um bairro de sua preferência e clique em um imóvel de sua escolha para carregar as informações no dashboard.
+        </div>
+
         <!-- Filtros -->
         <div class="filter-container">
             <h3>🔍 Filtros</h3>
@@ -59,7 +83,7 @@
                 <div class="filter-group">
                     <label for="bairro-select">Bairros:</label>
                     <select id="bairro-select">
-                        <option value="">Carregando...</option>
+                        <option value="">Selecione seu bairro</option>
                     </select>
                 </div>
                 <div class="filter-group">
@@ -145,7 +169,7 @@
                     <p id="renda-per-capita-display">0,00</p>
                 </div>
                 <div class="info-card">
-                    <h4>🏡 Renda domiciliar per capita</h4>
+                    <h4>🏡 Renda domiciliar per capita (R$)</h4>
                     <p id="renda-domiciliar-per-capita-display">0,00</p>
                 </div>
                 <div class="info-card invisible"></div>
@@ -219,6 +243,9 @@
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
 
+    <!-- ⭐ NOVO: SheetJS para ler arquivos Excel -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
     <!-- Scripts customizados na ordem correta -->
     <script src="js/dashboard.js"></script>
     <script src="js/map.js"></script>
@@ -229,7 +256,7 @@
     <script>
         // Remover inicializações duplicadas
         document.addEventListener('DOMContentLoaded', function() {
-            console.log('🚀 Inicializando SolarMap Dashboard CORRIGIDO...');
+            console.log('🚀 Inicializando SolarMap Dashboard EXCEL READER...');
 
             // Verificar se já foi inicializado
             if (window.dashboardInitialized) {
@@ -239,6 +266,13 @@
 
             // Marcar como inicializado
             window.dashboardInitialized = true;
+
+            // Verificar se SheetJS está disponível
+            if (typeof XLSX === 'undefined') {
+                console.error('❌ SheetJS não carregado! Verifique a conexão com internet.');
+                return;
+            }
+            console.log('✅ SheetJS disponível para leitura de Excel');
 
             // Inicializar
             if (typeof initializeDashboard === 'function') {
