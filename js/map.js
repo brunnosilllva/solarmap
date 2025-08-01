@@ -399,6 +399,14 @@ function addPolygonsToMap() {
 function createPopupContent(item) {
     const props = item.properties;
     
+    // CORRIGIDO: Formatar valores de renda como string se não forem numéricos
+    const formatRenda = (valor) => {
+        if (typeof valor === 'string' && isNaN(parseFloat(valor))) {
+            return valor; // Manter como string original
+        }
+        return formatNumberWithDots(valor);
+    };
+    
     return `
         <div style="min-width: 250px;">
             <h4 style="margin: 0 0 10px 0; color: #1e3a5f;">
@@ -409,7 +417,9 @@ function createPopupContent(item) {
             <p><strong>Produção:</strong> ${formatNumberWithDots(props.producao_telhado)} kW</p>
             <p><strong>Radiação:</strong> ${formatNumberWithDots(props.radiacao_max)} kW/m²</p>
             <p><strong>Placas:</strong> ${formatNumberWithDots(props.quantidade_placas, 0)} unidades</p>
-            <p><strong>Renda Total:</strong> R$ ${formatNumberWithDots(props.renda_domiciliar_per_capita)}</p>
+            <p><strong>Renda Total:</strong> R$ ${formatRenda(props.renda_total)}</p>
+            <p><strong>Renda Per Capita:</strong> R$ ${formatRenda(props.renda_per_capita)}</p>
+            <p><strong>Renda Domiciliar:</strong> R$ ${formatRenda(props.renda_domiciliar_per_capita)}</p>
         </div>
     `;
 }
