@@ -1,6 +1,6 @@
 // ================================
 // SISTEMA DE FILTROS - SOLARMAP
-// VERSÃO CORRIGIDA COM APENAS 2 OPÇÕES
+// VERSÃO CORRIGIDA COM TEXTO PERMANENTE
 // ================================
 
 // ================================
@@ -32,24 +32,28 @@ function populateBairroSelect() {
     // Limpar opções existentes
     select.innerHTML = '';
 
-    // Obter bairros únicos dos dados
-    const bairros = [...new Set(window.dadosCompletos.map(item => item.properties.bairro))].sort();
-
-    // Adicionar opção padrão
+    // CORRIGIDO: Adicionar opção padrão com texto correto
     const defaultOption = document.createElement('option');
     defaultOption.value = '';
-    defaultOption.textContent = 'Todos os Bairros';
+    defaultOption.textContent = 'Selecione seu bairro';
     select.appendChild(defaultOption);
 
-    // Adicionar opções de bairros
-    bairros.forEach(bairro => {
-        const option = document.createElement('option');
-        option.value = bairro;
-        option.textContent = bairro;
-        select.appendChild(option);
-    });
+    // Obter bairros únicos dos dados
+    if (window.dadosCompletos && window.dadosCompletos.length > 0) {
+        const bairros = [...new Set(window.dadosCompletos.map(item => item.properties.bairro))].sort();
 
-    console.log(`✅ ${bairros.length} bairros carregados no filtro`);
+        // Adicionar opções de bairros
+        bairros.forEach(bairro => {
+            const option = document.createElement('option');
+            option.value = bairro;
+            option.textContent = bairro;
+            select.appendChild(option);
+        });
+
+        console.log(`✅ ${bairros.length} bairros carregados no filtro`);
+    } else {
+        console.log('⚠️ Dados ainda não carregados para popular bairros');
+    }
 }
 
 // ================================
@@ -139,6 +143,10 @@ function resetAllFilters() {
 
     if (bairroSelect) {
         bairroSelect.value = '';
+        // CORRIGIDO: Garantir que o texto padrão seja mantido
+        if (bairroSelect.options[0]) {
+            bairroSelect.options[0].textContent = 'Selecione seu bairro';
+        }
     }
 
     if (infoSelect) {
@@ -205,4 +213,4 @@ window.getFilterStats = getFilterStats;
 window.updateFiltersOnDataChange = updateFiltersOnDataChange;
 window.populateBairroSelect = populateBairroSelect;
 
-console.log('✅ FILTROS CORRIGIDOS - Apenas 2 opções implementadas!');
+console.log('✅ FILTROS CORRIGIDOS - Texto permanente implementado!');
