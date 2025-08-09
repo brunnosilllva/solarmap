@@ -9,7 +9,7 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 
     <!-- Font Awesome -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.css">
 
     <!-- CSS Customizado -->
     <link rel="stylesheet" href="css/style.css">
@@ -95,7 +95,7 @@
             </div>
         </div>
 
-        <!-- Cards de informações - TÍTULOS CORRIGIDOS -->
+        <!-- Cards de informações -->
         <div class="info-section">
             <h3 class="info-title">📋 Detalhes do Imóvel Selecionado</h3>
 
@@ -212,52 +212,119 @@
         </div>
     </div>
 
-    <!-- Scripts em ordem correta -->
-    <!-- Leaflet JS -->
+    <!-- Scripts em ordem RIGOROSAMENTE CONTROLADA -->
+    
+    <!-- 1. Bibliotecas Base (Leaflet) -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
-    <!-- Chart.js -->
+    
+    <!-- 2. Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
-
-    <!-- ✅ XLSX.js - BIBLIOTECA EXCEL READER -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-
-    <!-- Scripts customizados na ordem correta -->
-    <script src="js/dashboard.js"></script>
-    <script src="js/map.js"></script>
-    <script src="js/charts.js"></script>
-    <script src="js/filters.js"></script>
-
-    <!-- Inicialização única -->
+    
+    <!-- 3. XLSX OBRIGATÓRIO - AGUARDA CARREGAMENTO -->
     <script>
-        // Remover inicializações duplicadas
-        document.addEventListener('DOMContentLoaded', function() {
-            console.log('🚀 Inicializando SolarMap Dashboard CORRIGIDO...');
-
-            // Verificar se já foi inicializado
-            if (window.dashboardInitialized) {
-                console.log('⚠️ Dashboard já inicializado, pulando...');
+        console.log('🔄 Carregando XLSX...');
+        
+        // Função para carregar script de forma síncrona
+        function loadScriptSync(src) {
+            return new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.src = src;
+                script.onload = () => {
+                    console.log('✅ Script carregado:', src);
+                    resolve();
+                };
+                script.onerror = () => {
+                    console.error('❌ Erro ao carregar:', src);
+                    reject(new Error(`Falha ao carregar: ${src}`));
+                };
+                document.head.appendChild(script);
+            });
+        }
+        
+        // Carregar XLSX primeiro, depois continuar
+        loadScriptSync('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js')
+            .then(() => {
+                console.log('✅ XLSX carregado com sucesso:', typeof XLSX);
+                
+                // Aguardar um pouco para garantir que está disponível
+                setTimeout(() => {
+                    if (typeof XLSX === 'undefined') {
+                        console.error('❌ XLSX ainda não está disponível!');
+                        alert('❌ Erro: Não foi possível carregar a biblioteca XLSX');
+                        return;
+                    }
+                    
+                    console.log('✅ XLSX confirmado disponível');
+                    
+                    // Agora carregar os scripts customizados
+                    const scriptsToLoad = [
+                        'js/dashboard.js',
+                        'js/map.js', 
+                        'js/charts.js',
+                        'js/filters.js'
+                    ];
+                    
+                    // Carregar scripts sequencialmente
+                    let scriptIndex = 0;
+                    function loadNextScript() {
+                        if (scriptIndex >= scriptsToLoad.length) {
+                            // Todos scripts carregados, inicializar
+                            setTimeout(initializeSolarMap, 100);
+                            return;
+                        }
+                        
+                        const scriptSrc = scriptsToLoad[scriptIndex];
+                        loadScriptSync(scriptSrc)
+                            .then(() => {
+                                scriptIndex++;
+                                loadNextScript();
+                            })
+                            .catch(error => {
+                                console.error('❌ Erro ao carregar script:', error);
+                                alert(`❌ Erro ao carregar: ${scriptSrc}`);
+                            });
+                    }
+                    
+                    loadNextScript();
+                }, 200);
+            })
+            .catch(error => {
+                console.error('❌ Erro crítico ao carregar XLSX:', error);
+                alert('❌ Erro crítico: Não foi possível carregar a biblioteca XLSX');
+            });
+        
+        // Função de inicialização final
+        function initializeSolarMap() {
+            console.log('🚀 Inicializando SolarMap Dashboard...');
+            
+            // Verificações finais
+            if (typeof XLSX === 'undefined') {
+                console.error('❌ XLSX não disponível na inicialização!');
+                alert('❌ Biblioteca XLSX não está disponível');
                 return;
             }
-
+            
+            if (typeof initializeDashboard !== 'function') {
+                console.error('❌ initializeDashboard não encontrada!');
+                alert('❌ Função de inicialização não encontrada');
+                return;
+            }
+            
+            console.log('✅ Todas as verificações passaram. Iniciando...');
+            console.log('📋 XLSX disponível:', typeof XLSX);
+            console.log('📋 initializeDashboard disponível:', typeof initializeDashboard);
+            
             // Marcar como inicializado
             window.dashboardInitialized = true;
-
-            // Verificar se XLSX está disponível
-            if (typeof XLSX === 'undefined') {
-                console.error('❌ XLSX não carregado!');
-                alert('❌ Erro: Biblioteca XLSX não carregada!');
-                return;
-            }
-            console.log('✅ XLSX carregado:', typeof XLSX);
-
-            // Inicializar
-            if (typeof initializeDashboard === 'function') {
+            
+            // Inicializar dashboard
+            try {
                 initializeDashboard();
-            } else {
-                console.error('❌ Função initializeDashboard não encontrada');
+            } catch (error) {
+                console.error('❌ Erro na inicialização:', error);
+                alert('❌ Erro ao inicializar o dashboard: ' + error.message);
             }
-        });
+        }
     </script>
 </body>
 </html>
