@@ -645,61 +645,42 @@ function normalizeExcelData(row) {
         if (temRadiacao) console.log('   ☀️ Radiação:', dadosMensaisRadiacao.slice(0, 3), '...');
     }
     
-    // CORRIGIDO: Buscar campos específicos para cada métrica
+    // CORRIGIDO: Calcular métricas baseado nos dados disponíveis
     if (!normalized.radiacao_max || normalized.radiacao_max === 0) {
-        // Priorizar campos de radiação MÁXIMA
-        const radiacaoMaxFields = Object.keys(row).filter(key => 
-            (key.toLowerCase().includes('radiacao') && key.toLowerCase().includes('max')) ||
-            key.toLowerCase().includes('radiation') && key.toLowerCase().includes('max')
-        );
-        
-        if (radiacaoMaxFields.length > 0) {
-            for (const field of radiacaoMaxFields) {
-                const value = parseFloat(String(row[field]).replace(',', '.'));
-                if (!isNaN(value) && value > 0) {
-                    normalized.radiacao_max = value;
-                    console.log(`✅ Usando ${field} para radiacao_max: ${value}`);
-                    break;
-                }
-            }
-        } else {
-            // Se não tem campo de radiação máxima, usar o maior valor de radiação mensal
-            const radiacaoMensal = normalized.dados_mensais_radiacao;
-            if (radiacaoMensal && radiacaoMensal.length > 0) {
-                const maxRadiacao = Math.max(...radiacaoMensal);
-                if (maxRadiacao > 0) {
-                    normalized.radiacao_max = maxRadiacao;
-                    console.log(`✅ Usando maior radiação mensal para radiacao_max: ${maxRadiacao}`);
-                }
+        // Se não tem radiação máxima, calcular do maior valor mensal
+        const radiacaoMensal = normalized.dados_mensais_radiacao;
+        if (radiacaoMensal && radiacaoMensal.length > 0) {
+            const maxRadiacao = Math.max(...radiacaoMensal.filter(val => val > 0));
+            if (maxRadiacao > 0) {
+                normalized.radiacao_max = maxRadiacao;
+                console.log(`✅ Calculando radiacao_max do maior mensal: ${maxRadiacao}`);
             }
         }
     }
     
     if (!normalized.quantidade_placas || normalized.quantidade_placas === 0) {
-        // Priorizar campos ESPECÍFICOS de quantidade de placas
-        const placasFields = Object.keys(row).filter(key => 
-            (key.toLowerCase().includes('quantidade') && key.toLowerCase().includes('placa')) ||
-            (key.toLowerCase().includes('qtd') && key.toLowerCase().includes('placa')) ||
-            key.toLowerCase().includes('panel') && key.toLowerCase().includes('quant')
-        );
-        
-        if (placasFields.length > 0) {
-            for (const field of placasFields) {
-                const value = parseFloat(String(row[field]).replace(',', '.'));
-                if (!isNaN(value) && value > 0) {
-                    normalized.quantidade_placas = value;
-                    console.log(`✅ Usando ${field} para quantidade_placas: ${value}`);
-                    break;
-                }
-            }
+        // Calcular quantidade de placas baseado na capacidade e área
+        if (normalized.area_edificacao && normalized.capacidade_por_m2) {
+            // Capacidade total = área × capacidade por m²
+            const capacidadeTotal = normalized.area_edificacao * normalized.capacidade_por_m2;
+            // Placas padrão residencial: ~0.4-0.5 kW cada
+            const potenciaPorPlaca = 0.45; // kW por placa (média)
+            const placasCalculadas = Math.ceil(capacidadeTotal / potenciaPorPlaca);
+            normalized.quantidade_placas = placasCalculadas;
+            console.log(`✅ Calculando quantidade_placas: ${placasCalculadas} (baseado em ${capacidadeTotal.toFixed(2)}kW total)`);
+        } else if (normalized.producao_telhado) {
+            // Alternativa: usar produção do telhado
+            const potenciaPorPlaca = 0.45;
+            const placasCalculadas = Math.ceil(normalized.producao_telhado / potenciaPorPlaca);
+            normalized.quantidade_placas = placasCalculadas;
+            console.log(`✅ Calculando quantidade_placas do telhado: ${placasCalculadas}`);
         } else {
-            // FALLBACK: Calcular quantidade aproximada baseada na capacidade
-            if (normalized.capacidade_por_m2 && normalized.area_edificacao) {
-                // Assumindo placas de ~0.5 kW cada (padrão residencial)
-                const capacidadeTotal = normalized.capacidade_por_m2 * normalized.area_edificacao;
-                const placasAproximadas = Math.ceil(capacidadeTotal / 0.5);
-                normalized.quantidade_placas = placasAproximadas;
-                console.log(`✅ Calculando quantidade aproximada de placas: ${placasAproximadas}`);
+            // Última opção: usar valor simbólico baseado na área
+            if (normalized.area_edificacao > 0) {
+                // Aproximadamente 1 placa por 2m² (estimativa conservadora)
+                const placasEstimadas = Math.ceil(normalized.area_edificacao / 2);
+                normalized.quantidade_placas = placasEstimadas;
+                console.log(`✅ Estimando quantidade_placas pela área: ${placasEstimadas}`);
             }
         }
     }
@@ -708,39 +689,62 @@ function normalizeExcelData(row) {
 }
 
 function debugFieldMapping(sampleData) {
-    console.log('🔍 === DEBUG MAPEAMENTO DE CAMPOS ===');
+    console.log('🔍 === DEBUG MAPEAMENTO DE CAMPOS COMPLETO ===');
     if (!sampleData || typeof sampleData !== 'object') {
         console.log('❌ Dados de amostra inválidos');
         return;
     }
     
-    const camposEsperados = [
-        'Quantidade de Radiação Máxima Solar nos mêses (kW.m²)',
-        'Quantidade de Placas Fotovoltaicas capaz de gerar a energia gerada do imóvel',
-        'Capacidade de Produção de energia em kW por m²',
-        'Capacidade de Produção de energia em Placas Fotovoltaicas em kW.h.mês',
-        'Área em metros quadrados da edificação',
-        'Produção de energia kW do telhado do edifício'
-    ];
+    // Mostrar TODOS os campos disponíveis
+    const allFields = Object.keys(sampleData);
+    console.log('📋 === TODOS OS CAMPOS DO EXCEL ===');
+    allFields.forEach((field, index) => {
+        const value = sampleData[field];
+        console.log(`${index + 1}. "${field}" = ${value} (tipo: ${typeof value})`);
+    });
     
-    console.log('📋 Campos disponíveis no Excel:', Object.keys(sampleData));
-    console.log('🎯 Procurando pelos campos esperados:');
+    // Procurar especificamente por campos de radiação
+    console.log('\n🌞 === CAMPOS DE RADIAÇÃO ===');
+    const radiacaoFields = allFields.filter(field => 
+        field.toLowerCase().includes('radiacao') || 
+        field.toLowerCase().includes('radiation') ||
+        field.toLowerCase().includes('solar')
+    );
+    radiacaoFields.forEach(field => {
+        console.log(`☀️ "${field}" = ${sampleData[field]}`);
+    });
     
-    camposEsperados.forEach(campo => {
-        if (sampleData.hasOwnProperty(campo)) {
-            console.log(`✅ ENCONTRADO: "${campo}" = ${sampleData[campo]}`);
-        } else {
-            console.log(`❌ NÃO ENCONTRADO: "${campo}"`);
-            const similares = Object.keys(sampleData).filter(key => 
-                key.toLowerCase().includes(campo.toLowerCase().split(' ')[0]) ||
-                key.toLowerCase().includes('radiacao') ||
-                key.toLowerCase().includes('placas') ||
-                key.toLowerCase().includes('capacidade')
-            );
-            if (similares.length > 0) {
-                console.log('   🔎 Campos similares:', similares);
-            }
-        }
+    // Procurar especificamente por campos de placas
+    console.log('\n🔲 === CAMPOS DE PLACAS ===');
+    const placasFields = allFields.filter(field => 
+        field.toLowerCase().includes('placa') || 
+        field.toLowerCase().includes('panel') ||
+        field.toLowerCase().includes('quantidade')
+    );
+    placasFields.forEach(field => {
+        console.log(`🔲 "${field}" = ${sampleData[field]}`);
+    });
+    
+    // Procurar por campos de capacidade
+    console.log('\n⚡ === CAMPOS DE CAPACIDADE ===');
+    const capacidadeFields = allFields.filter(field => 
+        field.toLowerCase().includes('capacidade') ||
+        field.toLowerCase().includes('capacity') ||
+        field.toLowerCase().includes('produc')
+    );
+    capacidadeFields.forEach(field => {
+        console.log(`⚡ "${field}" = ${sampleData[field]}`);
+    });
+    
+    // Procurar por campos de área
+    console.log('\n🏠 === CAMPOS DE ÁREA ===');
+    const areaFields = allFields.filter(field => 
+        field.toLowerCase().includes('area') ||
+        field.toLowerCase().includes('m²') ||
+        field.toLowerCase().includes('metros')
+    );
+    areaFields.forEach(field => {
+        console.log(`🏠 "${field}" = ${sampleData[field]}`);
     });
 }
 
