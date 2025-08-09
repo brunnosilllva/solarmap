@@ -216,7 +216,81 @@ async function loadGeoJSON() {
 }
 
 // ================================
-// NOVO: CARREGAMENTO DE DADOS EXCEL
+// FUNÇÃO DE DEBUG EXCEL - NOVA
+// ================================
+function debugExcelStructure(workbook, jsonData, headers) {
+    console.log('🔍 === DEBUG EXCEL STRUCTURE ===');
+    
+    // 1. Informações do workbook
+    console.log('📊 Workbook info:');
+    console.log('  - SheetNames:', workbook.SheetNames);
+    console.log('  - Workbook:', workbook.Workbook);
+    
+    // 2. Informações da primeira planilha
+    const firstSheetName = workbook.SheetNames[0];
+    const worksheet = workbook.Sheets[firstSheetName];
+    console.log(`📋 Worksheet "${firstSheetName}" info:`);
+    console.log('  - Range:', worksheet['!ref']);
+    console.log('  - Merge:', worksheet['!merges']);
+    
+    // 3. Primeiras células para entender estrutura
+    console.log('🔍 Primeiras 10 células:');
+    const cellAddresses = ['A1', 'B1', 'C1', 'D1', 'E1', 'A2', 'B2', 'C2', 'D2', 'E2'];
+    cellAddresses.forEach(addr => {
+        const cell = worksheet[addr];
+        if (cell) {
+            console.log(`  ${addr}: "${cell.v}" (type: ${cell.t})`);
+        } else {
+            console.log(`  ${addr}: (empty)`);
+        }
+    });
+    
+    // 4. Análise dos dados JSON extraídos
+    console.log('📊 JSON Data Analysis:');
+    console.log('  - Total rows:', jsonData.length);
+    console.log('  - Headers (first row):', headers);
+    
+    if (jsonData.length > 1) {
+        console.log('  - Second row:', jsonData[1]);
+        console.log('  - Third row:', jsonData[2]);
+    }
+    
+    // 5. Verificar se há dados vazios
+    let emptyRows = 0;
+    let validRows = 0;
+    for (let i = 1; i < jsonData.length; i++) {
+        const row = jsonData[i];
+        const hasData = row.some(cell => cell !== null && cell !== undefined && cell !== '');
+        if (hasData) {
+            validRows++;
+        } else {
+            emptyRows++;
+        }
+    }
+    
+    console.log(`📈 Rows analysis: ${validRows} valid, ${emptyRows} empty`);
+    
+    // 6. Alternativa: tentar extrair dados de forma diferente
+    console.log('🔄 Tentando método alternativo...');
+    try {
+        const alternativeData = XLSX.utils.sheet_to_json(worksheet, {
+            raw: true,
+            defval: null
+        });
+        console.log('✅ Método alternativo extraiu:', alternativeData.length, 'registros');
+        if (alternativeData.length > 0) {
+            console.log('📋 Primeiro registro alternativo:', alternativeData[0]);
+            console.log('📋 Campos do primeiro registro:', Object.keys(alternativeData[0]));
+        }
+        return alternativeData;
+    } catch (error) {
+        console.error('❌ Método alternativo falhou:', error);
+        return null;
+    }
+}
+
+// ================================
+// NOVO: CARREGAMENTO DE DADOS EXCEL COM DEBUG
 // ================================
 async function loadExcelData() {
     console.log('📊 === CARREGANDO EXCEL (.xlsx) ===');
@@ -258,6 +332,26 @@ async function loadExcelData() {
         // Primeira linha são os headers
         const headers = jsonData[0];
         console.log(`📋 Headers encontrados (${headers.length}):`, headers.slice(0, 5), '...');
+        
+        // 🔍 DEBUG: Analisar estrutura do Excel
+        const alternativeData = debugExcelStructure(workbook, jsonData, headers);
+        
+        // Se método alternativo funcionar, usar ele
+        if (alternativeData && alternativeData.length > 0) {
+            console.log('🔄 Usando método alternativo de extração');
+            dadosExcel = alternativeData.map(row => normalizeExcelData(row));
+            console.log(`✅ Dados normalizados (método alternativo): ${dadosExcel.length} registros`);
+            
+            // DEBUG: Primeiro registro normalizado
+            if (dadosExcel.length > 0) {
+                console.log('🔍 Primeiro registro normalizado (método alternativo):');
+                console.log(dadosExcel[0]);
+            }
+            return;
+        }
+        
+        // Continuar com método original se alternativo falhar
+        console.log('⚠️ Método alternativo não funcionou, continuando com método original...');
         
         // Converter dados em objetos
         const dataObjects = [];
@@ -567,10 +661,8 @@ function debugFieldMapping(sampleData) {
 
 // ================================
 // CONTINUA COM AS FUNÇÕES RESTANTES...
-// (Todas as outras funções permanecem iguais)
 // ================================
 
-// Copiando as funções restantes do arquivo original
 async function linkDataReal() {
     console.log('🔗 === VINCULAÇÃO REAL ===');
     if (!dadosGeoJSON || dadosGeoJSON.length === 0) {
@@ -727,10 +819,6 @@ function combineProperties(geoItem, excelData, objectId) {
     
     return combined;
 }
-
-// ================================
-// TODAS AS OUTRAS FUNÇÕES PERMANECEM IGUAIS
-// ================================
 
 function calcularEstatisticas() {
     if (dadosCompletos.length === 0) return;
@@ -1148,5 +1236,6 @@ window.calcularEstatisticasPorBairro = calcularEstatisticasPorBairro;
 window.getMediaDoBairro = getMediaDoBairro;
 window.formatarComoExcel = formatarComoExcel;
 window.generateMonthlyAverages = generateMonthlyAverages;
+window.debugExcelStructure = debugExcelStructure;
 
 console.log('✅ DASHBOARD EXCEL READER COMPLETO CARREGADO!');
