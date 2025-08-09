@@ -911,13 +911,43 @@ function combineProperties(geoItem, excelData, objectId) {
         dados_mensais_radiacao: excelData?.dados_mensais_radiacao || new Array(12).fill(0)
     };
     
+    // DEBUG: Para os 3 primeiros objetos
+    if (objectId <= 13431) { // Os primeiros IDs
+        console.log(`🔍 === DEBUG COMBINE PROPERTIES ${objectId} ===`);
+        console.log('ExcelData disponível:', !!excelData);
+        if (excelData) {
+            console.log('ExcelData keys:', Object.keys(excelData).slice(0, 10), '...');
+            console.log('Alguns valores:', {
+                bairro: excelData.bairro,
+                area_edificacao: excelData.area_edificacao,
+                producao_telhado: excelData.producao_telhado,
+                capacidade_por_m2: excelData.capacidade_por_m2
+            });
+        }
+        console.log('Combined result:', combined);
+    }
+    
     return combined;
 }
 
 function calcularEstatisticas() {
-    if (dadosCompletos.length === 0) return;
+    if (!dadosCompletos || dadosCompletos.length === 0) {
+        console.log('⚠️ Nenhum dado disponível para calcular estatísticas');
+        return;
+    }
+    
+    console.log(`📊 Calculando estatísticas para ${dadosCompletos.length} itens`);
+    
     const totalImoveis = dadosCompletos.length;
-    const producaoTotal = dadosCompletos.reduce((sum, item) => sum + (item.properties.capacidade_placas_mes || 0), 0);
+    
+    // CORRIGIDO: Verificar se o item e suas propriedades existem
+    const producaoTotal = dadosCompletos.reduce((sum, item) => {
+        if (item && item.properties && typeof item.properties.capacidade_placas_mes === 'number') {
+            return sum + item.properties.capacidade_placas_mes;
+        }
+        return sum;
+    }, 0);
+    
     const mediaProducao = totalImoveis > 0 ? producaoTotal / totalImoveis : 0;
     
     estatisticas = {
@@ -925,29 +955,48 @@ function calcularEstatisticas() {
         producao_total: producaoTotal,
         media_producao: mediaProducao
     };
+    
     window.estatisticas = estatisticas;
     console.log('📊 Estatísticas globais calculadas:', estatisticas);
 }
 
 function calcularEstatisticasPorBairro() {
-    if (dadosCompletos.length === 0) return;
+    if (!dadosCompletos || dadosCompletos.length === 0) {
+        console.log('⚠️ Nenhum dado disponível para calcular estatísticas por bairro');
+        return;
+    }
     
     const dadosPorBairro = {};
     
     dadosCompletos.forEach(item => {
-        const bairro = item.properties.bairro || 'Não informado';
-        if (!dadosPorBairro[bairro]) {
-            dadosPorBairro[bairro] = [];
+        if (item && item.properties) {
+            const bairro = item.properties.bairro || 'Não informado';
+            if (!dadosPorBairro[bairro]) {
+                dadosPorBairro[bairro] = [];
+            }
+            dadosPorBairro[bairro].push(item);
         }
-        dadosPorBairro[bairro].push(item);
     });
     
     estatisticasPorBairro = {};
     
     Object.entries(dadosPorBairro).forEach(([bairro, imoveis]) => {
         const totalImoveis = imoveis.length;
-        const somaProducaoTelhado = imoveis.reduce((sum, item) => sum + (item.properties.producao_telhado || 0), 0);
-        const somaRadiacaoMax = imoveis.reduce((sum, item) => sum + (item.properties.radiacao_max || 0), 0);
+        
+        // CORRIGIDO: Verificar se as propriedades existem
+        const somaProducaoTelhado = imoveis.reduce((sum, item) => {
+            if (item && item.properties && typeof item.properties.producao_telhado === 'number') {
+                return sum + item.properties.producao_telhado;
+            }
+            return sum;
+        }, 0);
+        
+        const somaRadiacaoMax = imoveis.reduce((sum, item) => {
+            if (item && item.properties && typeof item.properties.radiacao_max === 'number') {
+                return sum + item.properties.radiacao_max;
+            }
+            return sum;
+        }, 0);
         
         const mediaProducaoTelhado = totalImoveis > 0 ? somaProducaoTelhado / totalImoveis : 0;
         const mediaRadiacaoMax = totalImoveis > 0 ? somaRadiacaoMax / totalImoveis : 0;
