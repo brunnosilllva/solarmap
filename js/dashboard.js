@@ -645,35 +645,61 @@ function normalizeExcelData(row) {
         if (temRadiacao) console.log('   ☀️ Radiação:', dadosMensaisRadiacao.slice(0, 3), '...');
     }
     
-    // Buscar campos alternativos para campos zerados
+    // CORRIGIDO: Buscar campos específicos para cada métrica
     if (!normalized.radiacao_max || normalized.radiacao_max === 0) {
-        const radiacaoFields = Object.keys(row).filter(key => 
-            key.toLowerCase().includes('radiacao') || 
-            key.toLowerCase().includes('radiation') ||
-            key.toLowerCase().includes('solar')
+        // Priorizar campos de radiação MÁXIMA
+        const radiacaoMaxFields = Object.keys(row).filter(key => 
+            (key.toLowerCase().includes('radiacao') && key.toLowerCase().includes('max')) ||
+            key.toLowerCase().includes('radiation') && key.toLowerCase().includes('max')
         );
-        for (const field of radiacaoFields) {
-            const value = parseFloat(String(row[field]).replace(',', '.'));
-            if (!isNaN(value) && value > 0) {
-                normalized.radiacao_max = value;
-                console.log(`✅ Usando ${field} para radiacao_max: ${value}`);
-                break;
+        
+        if (radiacaoMaxFields.length > 0) {
+            for (const field of radiacaoMaxFields) {
+                const value = parseFloat(String(row[field]).replace(',', '.'));
+                if (!isNaN(value) && value > 0) {
+                    normalized.radiacao_max = value;
+                    console.log(`✅ Usando ${field} para radiacao_max: ${value}`);
+                    break;
+                }
+            }
+        } else {
+            // Se não tem campo de radiação máxima, usar o maior valor de radiação mensal
+            const radiacaoMensal = normalized.dados_mensais_radiacao;
+            if (radiacaoMensal && radiacaoMensal.length > 0) {
+                const maxRadiacao = Math.max(...radiacaoMensal);
+                if (maxRadiacao > 0) {
+                    normalized.radiacao_max = maxRadiacao;
+                    console.log(`✅ Usando maior radiação mensal para radiacao_max: ${maxRadiacao}`);
+                }
             }
         }
     }
     
     if (!normalized.quantidade_placas || normalized.quantidade_placas === 0) {
+        // Priorizar campos ESPECÍFICOS de quantidade de placas
         const placasFields = Object.keys(row).filter(key => 
-            key.toLowerCase().includes('placa') || 
-            key.toLowerCase().includes('panel') ||
-            key.toLowerCase().includes('quantidade')
+            (key.toLowerCase().includes('quantidade') && key.toLowerCase().includes('placa')) ||
+            (key.toLowerCase().includes('qtd') && key.toLowerCase().includes('placa')) ||
+            key.toLowerCase().includes('panel') && key.toLowerCase().includes('quant')
         );
-        for (const field of placasFields) {
-            const value = parseFloat(String(row[field]).replace(',', '.'));
-            if (!isNaN(value) && value > 0) {
-                normalized.quantidade_placas = value;
-                console.log(`✅ Usando ${field} para quantidade_placas: ${value}`);
-                break;
+        
+        if (placasFields.length > 0) {
+            for (const field of placasFields) {
+                const value = parseFloat(String(row[field]).replace(',', '.'));
+                if (!isNaN(value) && value > 0) {
+                    normalized.quantidade_placas = value;
+                    console.log(`✅ Usando ${field} para quantidade_placas: ${value}`);
+                    break;
+                }
+            }
+        } else {
+            // FALLBACK: Calcular quantidade aproximada baseada na capacidade
+            if (normalized.capacidade_por_m2 && normalized.area_edificacao) {
+                // Assumindo placas de ~0.5 kW cada (padrão residencial)
+                const capacidadeTotal = normalized.capacidade_por_m2 * normalized.area_edificacao;
+                const placasAproximadas = Math.ceil(capacidadeTotal / 0.5);
+                normalized.quantidade_placas = placasAproximadas;
+                console.log(`✅ Calculando quantidade aproximada de placas: ${placasAproximadas}`);
             }
         }
     }
