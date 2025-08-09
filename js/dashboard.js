@@ -804,10 +804,15 @@ async function linkDataReal() {
                 excelData: dadosExcel,
                 isLinked: !!dadosExcel
             };
-            if (dadosExcel) {
-                sucessos++;
-            }
-            return combinedItem;
+    // NOVO: Debug detalhado de cada objeto processado (apenas os 3 primeiros)
+    if (dadosCompletos.length <= 3) {
+        console.log(`🔍 === DEBUG OBJETO ${dadosCompletos.length} ===`);
+        console.log('ID:', combinedItem.id);
+        console.log('Coordenadas válidas:', !!processedGeometry);
+        console.log('Centroide:', processedGeometry?.centroid);
+        console.log('Properties:', combinedItem.properties);
+        console.log('Dados Excel vinculados:', !!dadosExcel);
+    }
         } catch (error) {
             console.error(`❌ Erro no OBJECTID ${geo.id}:`, error);
             coordenadasInvalidas++;
