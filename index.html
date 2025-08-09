@@ -213,9 +213,6 @@
     </div>
 
     <!-- Scripts em ordem correta -->
-    <!-- IMPORTANTE: SheetJS para leitura de Excel - ADICIONADO -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-
     <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
@@ -228,48 +225,15 @@
     <script src="js/charts.js"></script>
     <script src="js/filters.js"></script>
 
-    <!-- Inicialização única - VERSÃO CORRIGIDA -->
+    <!-- Inicialização única -->
     <script>
-        // Verificar se todas as dependências estão carregadas
-        function checkDependencies() {
-            const dependencies = [
-                { name: 'Leaflet', check: () => typeof L !== 'undefined' },
-                { name: 'Chart.js', check: () => typeof Chart !== 'undefined' },
-                { name: 'SheetJS', check: () => typeof XLSX !== 'undefined' }
-            ];
-            
-            const missing = dependencies.filter(dep => !dep.check());
-            
-            if (missing.length > 0) {
-                console.warn('⚠️ Dependências faltando:', missing.map(d => d.name).join(', '));
-                return false;
-            }
-            
-            console.log('✅ Todas as dependências carregadas');
-            return true;
-        }
-
-        // Inicialização única e robusta
+        // Remover inicializações duplicadas
         document.addEventListener('DOMContentLoaded', function() {
             console.log('🚀 Inicializando SolarMap Dashboard CORRIGIDO...');
 
             // Verificar se já foi inicializado
             if (window.dashboardInitialized) {
                 console.log('⚠️ Dashboard já inicializado, pulando...');
-                return;
-            }
-
-            // Verificar dependências
-            if (!checkDependencies()) {
-                console.error('❌ Dependências não carregadas, tentando novamente em 2s...');
-                setTimeout(() => {
-                    if (checkDependencies() && typeof initializeDashboard === 'function') {
-                        window.dashboardInitialized = true;
-                        initializeDashboard();
-                    } else {
-                        console.error('❌ Falha ao carregar dependências após timeout');
-                    }
-                }, 2000);
                 return;
             }
 
@@ -282,17 +246,6 @@
             } else {
                 console.error('❌ Função initializeDashboard não encontrada');
             }
-        });
-
-        // Fallback adicional para casos extremos
-        window.addEventListener('load', function() {
-            setTimeout(() => {
-                if (!window.dashboardInitialized && typeof initializeDashboard === 'function') {
-                    console.log('🔄 Executando inicialização fallback...');
-                    window.dashboardInitialized = true;
-                    initializeDashboard();
-                }
-            }, 3000);
         });
     </script>
 </body>
