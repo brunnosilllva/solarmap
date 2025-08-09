@@ -290,17 +290,49 @@ function debugExcelStructure(workbook, jsonData, headers) {
 }
 
 // ================================
-// NOVO: CARREGAMENTO DE DADOS EXCEL COM DEBUG
+// NOVO: CARREGAMENTO DE DADOS EXCEL COM MÚLTIPLOS CAMINHOS
 // ================================
 async function loadExcelData() {
     console.log('📊 === CARREGANDO EXCEL (.xlsx) ===');
-    try {
-        // Tentar carregar o arquivo Excel
-        const response = await fetch('data/Dados_energia_solar.xlsx');
-        if (!response.ok) {
-            throw new Error(`❌ Arquivo Excel não encontrado! Status: ${response.status}`);
+    
+    // Lista de possíveis caminhos para o arquivo Excel
+    const possiblePaths = [
+        'data/Dados_energia_solar.xlsx',
+        'Dados_energia_solar.xlsx',
+        'data/dados_energia_solar.xlsx',
+        'dados_energia_solar.xlsx',
+        'data/excel/Dados_energia_solar.xlsx',
+        'excel/Dados_energia_solar.xlsx',
+        'assets/Dados_energia_solar.xlsx'
+    ];
+    
+    let foundPath = null;
+    let response = null;
+    
+    // Tentar cada caminho até encontrar o arquivo
+    for (const path of possiblePaths) {
+        try {
+            console.log(`🔍 Tentando carregar: ${path}`);
+            response = await fetch(path);
+            if (response.ok) {
+                foundPath = path;
+                console.log(`✅ Arquivo Excel encontrado em: ${foundPath}`);
+                break;
+            } else {
+                console.log(`❌ Não encontrado em: ${path} (Status: ${response.status})`);
+            }
+        } catch (error) {
+            console.log(`❌ Erro ao tentar: ${path} - ${error.message}`);
         }
-        
+    }
+    
+    if (!foundPath || !response.ok) {
+        console.error('❌ Arquivo Excel não encontrado em nenhum dos caminhos testados');
+        console.log('📋 Caminhos testados:', possiblePaths);
+        throw new Error(`❌ Arquivo Excel não encontrado! Testados: ${possiblePaths.join(', ')}`);
+    }
+    
+    try {
         console.log('✅ Arquivo Excel encontrado, processando...');
         const arrayBuffer = await response.arrayBuffer();
         
@@ -401,7 +433,7 @@ async function loadExcelData() {
         }
         
     } catch (error) {
-        console.error('❌ Erro ao carregar Excel:', error);
+        console.error('❌ Erro ao processar Excel:', error);
         
         // Fallback: tentar carregar JSON como backup
         console.log('🔄 Tentando fallback para JSON...');
@@ -416,11 +448,38 @@ async function loadExcelData() {
 
 // Fallback para JSON (caso Excel não funcione)
 async function loadExcelDataJSON() {
-    const response = await fetch('data/Dados_energia_solar.json');
-    if (!response.ok) {
-        throw new Error(`❌ Arquivo JSON não encontrado! Status: ${response.status}`);
+    console.log('📄 === CARREGANDO JSON FALLBACK ===');
+    
+    const possibleJsonPaths = [
+        'data/Dados_energia_solar.json',
+        'Dados_energia_solar.json',
+        'data/dados_energia_solar.json',
+        'dados_energia_solar.json',
+        'assets/Dados_energia_solar.json'
+    ];
+    
+    let foundJsonPath = null;
+    let jsonResponse = null;
+    
+    for (const path of possibleJsonPaths) {
+        try {
+            console.log(`🔍 Tentando JSON: ${path}`);
+            jsonResponse = await fetch(path);
+            if (jsonResponse.ok) {
+                foundJsonPath = path;
+                console.log(`✅ JSON encontrado em: ${foundJsonPath}`);
+                break;
+            }
+        } catch (error) {
+            console.log(`❌ JSON não encontrado: ${path}`);
+        }
     }
-    const jsonData = await response.json();
+    
+    if (!foundJsonPath || !jsonResponse.ok) {
+        throw new Error(`❌ Arquivo JSON não encontrado! Testados: ${possibleJsonPaths.join(', ')}`);
+    }
+    
+    const jsonData = await jsonResponse.json();
     console.log(`✅ JSON fallback carregado: ${jsonData.length} registros`);
     dadosExcel = jsonData.map(row => normalizeExcelData(row));
 }
@@ -1012,7 +1071,7 @@ function updateRelatorio(imovel = null) {
                 <li>✅ Lê arquivos Excel (.xlsx) diretamente</li>
                 <li>✅ Fallback automático para JSON</li>
                 <li>✅ Processamento otimizado</li>
-                <li>✅ Sem limite de tamanho GitHub</li>
+                <li>✅ Múltiplos caminhos de busca</li>
             </ul>
         `;
     }
