@@ -265,14 +265,8 @@ function applyFilters() {
         }
     }
 
-    // Atualizar mapa
-    if (window.filterMapPolygons) {
-        try {
-            window.filterMapPolygons();
-        } catch (error) {
-            console.error('❌ Erro ao filtrar polígonos do mapa:', error);
-        }
-    }
+    // Atualizar mapa - NOVA IMPLEMENTAÇÃO
+    filterMapPolygons();
 
     // Log de resultados
     if (window.filtrarDados) {
@@ -375,8 +369,139 @@ function resetAllFilters() {
 }
 
 // ================================
-// OBTER ESTATÍSTICAS DOS FILTROS
+// FILTRAR POLÍGONOS NO MAPA - NOVA FUNÇÃO
 // ================================
+function filterMapPolygons() {
+    console.log('🗺️ Filtrando polígonos no mapa...');
+    
+    // Verificar se o mapa e layerGroup existem
+    if (!window.mapInstance || !window.layerGroup) {
+        console.warn('⚠️ Mapa ou layerGroup não disponível para filtros');
+        return;
+    }
+    
+    const bairroSelecionado = window.filtrosAtivos?.bairros?.[0] || null;
+    console.log(`🏘️ Bairro para filtro no mapa: ${bairroSelecionado || 'Todos'}`);
+    
+    let polígnosVisíveis = 0;
+    let polígnosOcultos = 0;
+    
+    // Iterar por todos os layers no mapa
+    window.layerGroup.eachLayer(function(layer) {
+        // Verificar se o layer tem dados do imóvel
+        const imovelData = layer.imovelData;
+        
+        if (!imovelData || !imovelData.properties) {
+            return; // Skip se não tem dados
+        }
+        
+        const bairroDoImovel = imovelData.properties.bairro;
+        
+        // Determinar se deve mostrar ou ocultar
+        let mostrar = true;
+        
+        if (bairroSelecionado && bairroSelecionado.trim() !== '') {
+            // Se há bairro selecionado, mostrar apenas esse bairro
+            mostrar = bairroDoImovel === bairroSelecionado;
+        }
+        // Se não há bairro selecionado (todos), mostrar tudo
+        
+        // Aplicar filtros adicionais (valores min/max)
+        if (mostrar && window.filtrosAtivos) {
+            const valor = imovelData.properties[window.filtrosAtivos.info] || 0;
+            
+            if (window.filtrosAtivos.minValue !== null && valor < window.filtrosAtivos.minValue) {
+                mostrar = false;
+            }
+            
+            if (window.filtrosAtivos.maxValue !== null && valor > window.filtrosAtivos.maxValue) {
+                mostrar = false;
+            }
+        }
+        
+        // Mostrar ou ocultar o polígono
+        if (mostrar) {
+            if (!window.mapInstance.hasLayer(layer)) {
+                window.mapInstance.addLayer(layer);
+            }
+            polígnosVisíveis++;
+        } else {
+            if (window.mapInstance.hasLayer(layer)) {
+                window.mapInstance.removeLayer(layer);
+            }
+            polígnosOcultos++;
+        }
+    });
+    
+    console.log(`✅ Filtro aplicado no mapa:`);
+    console.log(`   📍 Polígonos visíveis: ${polígnosVisíveis}`);
+    console.log(`   👁️ Polígonos ocultos: ${polígnosOcultos}`);
+    
+    // Ajustar zoom se houver polígonos visíveis
+    if (polígnosVisíveis > 0 && bairroSelecionado) {
+        setTimeout(() => {
+            ajustarZoomParaBairro(bairroSelecionado);
+        }, 100);
+    } else if (!bairroSelecionado) {
+        // Se mostrando todos, ajustar para todos os polígonos
+        setTimeout(() => {
+            ajustarZoomParaTodos();
+        }, 100);
+    }
+}
+
+// ================================
+// AJUSTAR ZOOM PARA BAIRRO ESPECÍFICO
+// ================================
+function ajustarZoomParaBairro(bairro) {
+    if (!window.mapInstance || !window.layerGroup) return;
+    
+    console.log(`🔍 Ajustando zoom para bairro: ${bairro}`);
+    
+    const layersVisíveis = [];
+    
+    window.layerGroup.eachLayer(function(layer) {
+        if (window.mapInstance.hasLayer(layer) && 
+            layer.imovelData?.properties?.bairro === bairro) {
+            layersVisíveis.push(layer);
+        }
+    });
+    
+    if (layersVisíveis.length > 0) {
+        try {
+            const group = new L.featureGroup(layersVisíveis);
+            window.mapInstance.fitBounds(group.getBounds(), {
+                padding: [20, 20],
+                maxZoom: 16
+            });
+            console.log(`✅ Zoom ajustado para ${layersVisíveis.length} polígonos do bairro ${bairro}`);
+        } catch (error) {
+            console.error('❌ Erro ao ajustar zoom para bairro:', error);
+        }
+    }
+}
+
+// ================================
+// AJUSTAR ZOOM PARA TODOS OS POLÍGONOS
+// ================================
+function ajustarZoomParaTodos() {
+    if (!window.mapInstance || !window.layerGroup) return;
+    
+    console.log('🌐 Ajustando zoom para todos os polígonos');
+    
+    try {
+        const bounds = window.layerGroup.getBounds();
+        if (bounds.isValid()) {
+            window.mapInstance.fitBounds(bounds, {
+                padding: [20, 20],
+                maxZoom: 15
+            });
+            console.log('✅ Zoom ajustado para todos os polígonos');
+        }
+    } catch (error) {
+        console.error('❌ Erro ao ajustar zoom para todos:', error);
+    }
+}
 function getFilterStats() {
     if (!window.filtrarDados) {
         return {
@@ -672,8 +797,9 @@ window.diagnosticFilters = diagnosticFilters;
 window.forceReloadBairros = forceReloadBairros;
 window.testFilters = testFilters;
 window.populateBairroSelectWithFallback = populateBairroSelectWithFallback;
-window.updateSummaryCardsWithFilters = updateSummaryCardsWithFilters;
-window.addInstructionText = addInstructionText;
+window.filterMapPolygons = filterMapPolygons;
+window.ajustarZoomParaBairro = ajustarZoomParaBairro;
+window.ajustarZoomParaTodos = ajustarZoomParaTodos;
 
 console.log('✅ FILTROS FINAIS CORRIGIDOS - Bairros funcionando + Cards dinâmicos!');
 console.log('🔍 Execute diagnosticFilters() para diagnóstico');
