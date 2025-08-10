@@ -140,29 +140,41 @@ function converterNumeroCorreto(valor) {
     // Converter para string primeiro
     let valorString = String(valor).trim();
     
-    // Se já é um número válido, retornar
-    const numeroDirecto = parseFloat(valorString);
-    if (!isNaN(numeroDirecto)) {
-        return numeroDirecto;
+    // Se for um número puro sem formatação, retornar direto
+    if (!isNaN(Number(valorString)) && !valorString.includes(',') && !valorString.includes('.')) {
+        return Number(valorString);
     }
     
-    // CORREÇÃO: Tratar formato brasileiro (vírgula = decimal, ponto = milhares)
-    // Exemplo: "1.234,56" → 1234.56
-    // Exemplo: "21,72" → 21.72
-    // Exemplo: "65.00" → 65.00 (já está correto)
+    // CORREÇÃO MELHORADA: Detectar formato brasileiro vs americano
+    const temVirgula = valorString.includes(',');
+    const temPonto = valorString.includes('.');
     
-    // Verificar se tem vírgula (formato brasileiro com vírgula decimal)
-    if (valorString.includes(',')) {
-        // Formato: "21,72" ou "1.234,56"
-        // Remover pontos (milhares) e trocar vírgula por ponto (decimal)
-        valorString = valorString
-            .replace(/\./g, '')  // Remove pontos (separador de milhares)
-            .replace(',', '.');  // Troca vírgula por ponto (decimal)
+    // Caso 1: Formato brasileiro com vírgula decimal
+    if (temVirgula) {
+        if (temPonto && temVirgula) {
+            // Formato: "1.234,56" (brasileiro com milhares)
+            valorString = valorString.replace(/\./g, '').replace(',', '.');
+        } else {
+            // Formato: "21,72" (brasileiro simples)
+            valorString = valorString.replace(',', '.');
+        }
     }
-    // Senão, assume que já está no formato americano (ponto = decimal)
+    // Caso 2: Formato americano "21.72" ou "1,234.56" - manter como está
+    else if (temPonto) {
+        // Se tem vírgula antes do ponto, é formato americano com milhares
+        if (valorString.includes(',') && valorString.lastIndexOf(',') < valorString.lastIndexOf('.')) {
+            valorString = valorString.replace(/,/g, '');
+        }
+    }
     
-    // Remover caracteres não numéricos (exceto ponto e sinal)
+    // Remover caracteres não numéricos (exceto ponto decimal e sinal)
     valorString = valorString.replace(/[^\d.-]/g, '');
+    
+    // Garantir que só há um ponto decimal
+    const partes = valorString.split('.');
+    if (partes.length > 2) {
+        valorString = partes[0] + '.' + partes.slice(1).join('');
+    }
     
     const valorConvertido = parseFloat(valorString);
     return isNaN(valorConvertido) ? null : valorConvertido;
@@ -600,24 +612,44 @@ function updateRelatorio(imovel = null) {
 // FUNÇÃO PARA TESTAR A CONVERSÃO
 // ================================
 function testarConversaoNumeros() {
-    console.log('🧪 === TESTE DE CONVERSÃO DE NÚMEROS ===');
+    console.log('🧪 === TESTE DE CONVERSÃO DE NÚMEROS (CORRIGIDO) ===');
     
     const testes = [
-        '21.72',    // Deveria ser 21.72
-        '21,72',    // Deveria ser 21.72
-        '65.00',    // Deveria ser 65.00
-        '65,00',    // Deveria ser 65.00
-        '1.234,56', // Deveria ser 1234.56
-        '1,234.56', // Deveria ser 1234.56
-        '49.00',    // Deveria ser 49.00
-        '0.15',     // Deveria ser 0.15
-        '0,15'      // Deveria ser 0.15
+        { input: '21.72', esperado: 21.72, desc: 'Formato americano' },
+        { input: '21,72', esperado: 21.72, desc: 'Formato brasileiro' },
+        { input: '65.00', esperado: 65.00, desc: 'Formato americano com zero' },
+        { input: '65,00', esperado: 65.00, desc: 'Formato brasileiro com zero' },
+        { input: '1.234,56', esperado: 1234.56, desc: 'Brasileiro com milhares' },
+        { input: '1,234.56', esperado: 1234.56, desc: 'Americano com milhares' },
+        { input: '49.00', esperado: 49.00, desc: 'Número simples' },
+        { input: '0.15', esperado: 0.15, desc: 'Decimal americano' },
+        { input: '0,15', esperado: 0.15, desc: 'Decimal brasileiro' },
+        { input: '1000', esperado: 1000, desc: 'Inteiro puro' },
+        { input: 21.72, esperado: 21.72, desc: 'Já é número' }
     ];
     
+    let corretos = 0;
+    let total = testes.length;
+    
     testes.forEach(teste => {
-        const resultado = converterNumeroCorreto(teste);
-        console.log(`"${teste}" → ${resultado}`);
+        const resultado = converterNumeroCorreto(teste.input);
+        const correto = Math.abs(resultado - teste.esperado) < 0.001;
+        
+        console.log(
+            `${correto ? '✅' : '❌'} "${teste.input}" → ${resultado} ` +
+            `(esperado: ${teste.esperado}) - ${teste.desc}`
+        );
+        
+        if (correto) corretos++;
     });
+    
+    console.log(`\n📊 Resultado: ${corretos}/${total} testes passaram (${((corretos/total)*100).toFixed(1)}%)`);
+    
+    if (corretos === total) {
+        console.log('🎉 Todos os testes passaram! Conversão funcionando perfeitamente.');
+    } else {
+        console.log('⚠️ Alguns testes falharam. Verifique a função de conversão.');
+    }
 }
 
 // ================================
