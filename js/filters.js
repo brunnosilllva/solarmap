@@ -1,6 +1,6 @@
 // ================================
 // SISTEMA DE FILTROS - SOLARMAP
-// VERSÃO FINAL CORRIGIDA - Bairros funcionando
+// VERSÃO FINAL CORRIGIDA - Bairros funcionando + Cards dinâmicos
 // ================================
 
 // ================================
@@ -11,6 +11,7 @@ function initializeFilters() {
 
     try {
         setupFilterEvents();
+        addInstructionText();
         
         // Aguardar dados serem carregados antes de popular bairros
         if (window.dadosCompletos && window.dadosCompletos.length > 0) {
@@ -35,6 +36,49 @@ function initializeFilters() {
 }
 
 // ================================
+// ADICIONAR TEXTO INFORMATIVO
+// ================================
+function addInstructionText() {
+    // Verificar se o texto já existe
+    if (document.getElementById('map-instruction-text')) {
+        return;
+    }
+
+    // Encontrar o contêiner do mapa
+    const mapContainer = document.getElementById('map-container') || 
+                        document.querySelector('.map-container') ||
+                        document.querySelector('#map');
+
+    if (mapContainer) {
+        // Criar elemento de instrução
+        const instructionDiv = document.createElement('div');
+        instructionDiv.id = 'map-instruction-text';
+        instructionDiv.style.cssText = `
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px 20px;
+            margin-bottom: 15px;
+            border-radius: 8px;
+            font-size: 14px;
+            text-align: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            border-left: 4px solid #ffd700;
+            font-family: Arial, sans-serif;
+        `;
+        instructionDiv.innerHTML = `
+            <i class="fas fa-info-circle" style="margin-right: 8px;"></i>
+            <strong>Para carregar as informações de um imóvel específico nas abas seguintes, por favor, selecione um imóvel no mapa.</strong>
+        `;
+
+        // Inserir antes do mapa
+        mapContainer.parentNode.insertBefore(instructionDiv, mapContainer);
+        console.log('✅ Texto informativo adicionado acima do mapa');
+    } else {
+        console.warn('⚠️ Contêiner do mapa não encontrado para adicionar texto informativo');
+    }
+}
+
+// ================================
 // POPULAR SELECT DE BAIRROS - VERSÃO CORRIGIDA
 // ================================
 function populateBairroSelect() {
@@ -49,10 +93,10 @@ function populateBairroSelect() {
     // Limpar opções existentes
     select.innerHTML = '';
 
-    // Adicionar opção padrão
+    // Adicionar opção padrão CORRIGIDA
     const defaultOption = document.createElement('option');
     defaultOption.value = '';
-    defaultOption.textContent = 'Todos os bairros';
+    defaultOption.textContent = 'Todos os bairros disponíveis';
     select.appendChild(defaultOption);
 
     // Verificar se dados estão disponíveis
@@ -209,6 +253,9 @@ function applyFilters() {
         console.log('📋 Filtros ativos atualizados:', window.filtrosAtivos);
     }
 
+    // NOVO: Atualizar cards com estatísticas do bairro selecionado
+    updateSummaryCardsWithFilters();
+
     // Atualizar elementos do dashboard
     if (window.updateSummaryCards) {
         try {
@@ -236,6 +283,54 @@ function applyFilters() {
             console.log(`🏘️ Filtro por bairro: ${window.filtrosAtivos.bairros[0]}`);
         }
     }
+}
+
+// ================================
+// ATUALIZAR CARDS COM FILTROS - NOVA FUNÇÃO
+// ================================
+function updateSummaryCardsWithFilters() {
+    console.log('📊 Atualizando cards com filtros aplicados...');
+    
+    if (!window.filtrarDados) {
+        console.warn('⚠️ Função filtrarDados não disponível');
+        return;
+    }
+
+    // Obter dados filtrados
+    const dadosFiltrados = window.filtrarDados();
+    
+    // Calcular estatísticas dos dados filtrados
+    const totalImoveis = dadosFiltrados.length;
+    
+    const producaoTotal = dadosFiltrados.reduce((sum, item) => {
+        return sum + (item.properties?.capacidade_por_m2 || 0);
+    }, 0);
+    
+    const mediaPorImovel = totalImoveis > 0 ? producaoTotal / totalImoveis : 0;
+
+    // Atualizar elementos HTML
+    const totalEl = document.getElementById('total-imoveis-display');
+    const producaoEl = document.getElementById('producao-total-display');
+    const mediaEl = document.getElementById('media-imovel-display');
+    
+    if (totalEl) {
+        totalEl.textContent = totalImoveis.toLocaleString('pt-BR');
+    }
+    
+    if (producaoEl) {
+        producaoEl.textContent = window.formatNumber ? window.formatNumber(producaoTotal, 2) : producaoTotal.toFixed(2);
+    }
+    
+    if (mediaEl) {
+        mediaEl.textContent = window.formatNumber ? window.formatNumber(mediaPorImovel, 2) : mediaPorImovel.toFixed(2);
+    }
+
+    // Log para debug
+    const bairroSelecionado = window.filtrosAtivos?.bairros?.[0] || 'Todos';
+    console.log(`📊 Cards atualizados para: ${bairroSelecionado}`);
+    console.log(`   📍 Total de Imóveis: ${totalImoveis.toLocaleString('pt-BR')}`);
+    console.log(`   ⚡ Produção Total: ${producaoTotal.toFixed(2)} kW`);
+    console.log(`   📈 Média por Imóvel: ${mediaPorImovel.toFixed(2)} kW`);
 }
 
 // ================================
@@ -295,7 +390,7 @@ function getFilterStats() {
     const total = dadosFiltrados.length;
     
     const producaoTotal = dadosFiltrados.reduce((sum, item) => {
-        return sum + (item.properties?.capacidade_placas_mes || 0);
+        return sum + (item.properties?.capacidade_por_m2 || 0);
     }, 0);
     
     const media = total > 0 ? producaoTotal / total : 0;
@@ -379,6 +474,10 @@ function diagnosticFilters() {
             console.log(`  ${i}: "${option.value}" - "${option.textContent}"`);
         }
     }
+    
+    // Testar estatísticas dos filtros
+    const stats = getFilterStats();
+    console.log('Estatísticas atuais dos filtros:', stats);
 }
 
 // ================================
@@ -436,6 +535,9 @@ function testFilters() {
         const dadosFiltradosPorBairro = window.filtrarDados();
         console.log(`  Bairro: ${bairrosUnicos[0]}`);
         console.log(`  Resultado: ${dadosFiltradosPorBairro.length} itens`);
+        
+        // Testar atualização dos cards
+        updateSummaryCardsWithFilters();
     } else {
         console.log('🧪 Teste 2: Pulado (apenas 1 bairro disponível)');
     }
@@ -461,6 +563,7 @@ function testFilters() {
         maxValue: null
     };
     
+    updateSummaryCardsWithFilters();
     console.log('✅ Teste dos filtros concluído');
 }
 
@@ -487,7 +590,7 @@ function populateBairroSelectWithFallback() {
         
         const defaultOption = document.createElement('option');
         defaultOption.value = '';
-        defaultOption.textContent = 'Todos os bairros';
+        defaultOption.textContent = 'Todos os bairros disponíveis';
         select.appendChild(defaultOption);
         
         const bairrosExcel = [...new Set(
@@ -537,6 +640,9 @@ function watchForDataChanges() {
             lastDataCount = currentCount;
             populateBairroSelect();
             
+            // Adicionar texto informativo quando dados carregarem
+            addInstructionText();
+            
             // Parar de verificar após encontrar dados
             if (currentCount > 0) {
                 clearInterval(checkData);
@@ -566,8 +672,11 @@ window.diagnosticFilters = diagnosticFilters;
 window.forceReloadBairros = forceReloadBairros;
 window.testFilters = testFilters;
 window.populateBairroSelectWithFallback = populateBairroSelectWithFallback;
+window.updateSummaryCardsWithFilters = updateSummaryCardsWithFilters;
+window.addInstructionText = addInstructionText;
 
-console.log('✅ FILTROS FINAIS CORRIGIDOS - Bairros funcionando!');
+console.log('✅ FILTROS FINAIS CORRIGIDOS - Bairros funcionando + Cards dinâmicos!');
 console.log('🔍 Execute diagnosticFilters() para diagnóstico');
 console.log('🧪 Execute testFilters() para testar filtros');
 console.log('🔄 Execute forceReloadBairros() se necessário');
+console.log('📊 Execute updateSummaryCardsWithFilters() para testar cards dinâmicos');
