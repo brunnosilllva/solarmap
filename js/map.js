@@ -1,6 +1,6 @@
 // ================================
 // MAPA INTERATIVO - SOLARMAP
-// VERSÃO FINAL CORRIGIDA - Problemas de exibição resolvidos
+// VERSÃO CORRIGIDA COMPLETA - Popup e funcionalidades conforme especificação
 // ================================
 
 // Variáveis globais do mapa
@@ -10,21 +10,20 @@ let selectedPolygon = null;
 let legendControl = null;
 let allPolygons = [];
 
-// Cores NOVAS: Amarelo queimado → Laranja → Vermelho vivo
+// CORES GRADIENTE: Laranja → Vermelho (conforme especificação)
 const GRADIENT_COLORS = [
-    '#DAA520', '#FF8C00', '#FF7F00', '#FF6500',  // Amarelo queimado → Laranja
-    '#FF4500', '#FF2500', '#FF0000', '#DC143C'   // Laranja → Vermelho vivo
+    '#FFA500', '#FF8C00', '#FF7F00', '#FF6500',  // Laranja claro → médio
+    '#FF4500', '#FF2500', '#FF0000', '#DC143C'   // Laranja escuro → Vermelho
 ];
 
 // ================================
-// FUNÇÃO DE FORMATAÇÃO CORRIGIDA
+// FUNÇÃO DE FORMATAÇÃO
 // ================================
 function formatNumberWithDots(numero, decimais = 2) {
     if (numero === null || numero === undefined || isNaN(numero)) {
         return '0,00';
     }
     
-    // Usar formatação brasileira com pontos nos milhares
     return new Intl.NumberFormat('pt-BR', {
         minimumFractionDigits: decimais,
         maximumFractionDigits: decimais
@@ -35,7 +34,7 @@ function formatNumberWithDots(numero, decimais = 2) {
 // INICIALIZAÇÃO DO MAPA
 // ================================
 function initMap() {
-    console.log('🗺️ Inicializando mapa final corrigido...');
+    console.log('🗺️ Inicializando mapa corrigido...');
     
     try {
         // Criar mapa centrado em São Luís
@@ -71,7 +70,7 @@ function createMapLegend(currentField, minValue, maxValue) {
         mapInstance.removeControl(legendControl);
     }
     
-    // Títulos dos campos
+    // Títulos dos campos conforme especificação
     const fieldTitles = {
         'capacidade_por_m2': 'Capacidade por m² (kW)',
         'producao_telhado': 'Produção do Telhado (kW)'
@@ -98,7 +97,7 @@ function createMapLegend(currentField, minValue, maxValue) {
         // Título da legenda
         div.innerHTML = `<h4 style="margin: 0 0 10px 0; color: #1e3a5f; font-size: 14px; font-weight: bold;">${title}</h4>`;
         
-        // Criar gradiente CSS
+        // Criar gradiente CSS (Laranja → Vermelho)
         const gradientStops = GRADIENT_COLORS.map((color, index) => {
             const percentage = (index / (GRADIENT_COLORS.length - 1)) * 100;
             return `${color} ${percentage}%`;
@@ -115,7 +114,7 @@ function createMapLegend(currentField, minValue, maxValue) {
             "></div>
         `;
         
-        // Labels de valores - FORMATAÇÃO CORRIGIDA
+        // Labels de valores
         const formatMin = window.formatNumber ? window.formatNumber(minValue, 1) : minValue.toFixed(1);
         const formatMax = window.formatNumber ? window.formatNumber(maxValue, 1) : maxValue.toFixed(1);
         const formatMid = window.formatNumber ? window.formatNumber((minValue + maxValue) / 2, 1) : ((minValue + maxValue) / 2).toFixed(1);
@@ -157,7 +156,7 @@ function createMapLegend(currentField, minValue, maxValue) {
 }
 
 // ================================
-// FUNÇÃO PARA OBTER COR DO GRADIENTE
+// FUNÇÃO PARA OBTER COR DO GRADIENTE (LARANJA → VERMELHO)
 // ================================
 function getGradientColor(valor, minValue, maxValue) {
     if (maxValue === minValue) {
@@ -233,7 +232,7 @@ function autoZoomToBairro(bairroSelecionado) {
     if (bounds) {
         mapInstance.fitBounds(bounds, { 
             padding: [30, 30],
-            maxZoom: 14  // Zoom máximo para não ficar muito próximo
+            maxZoom: 14
         });
         console.log(`🎯 Zoom automático para bairro: ${bairroSelecionado} (${imoveisDoBairro.length} imóveis)`);
     }
@@ -269,14 +268,13 @@ function calculateBounds(dados) {
 }
 
 // ================================
-// ADICIONAR POLÍGONOS AO MAPA - VERSÃO FINAL CORRIGIDA
+// ADICIONAR POLÍGONOS AO MAPA - VERSÃO CORRIGIDA
 // ================================
 function addPolygonsToMap() {
-    console.log('📍 === ADICIONANDO POLÍGONOS (VERSÃO FINAL CORRIGIDA) ===');
+    console.log('📍 === ADICIONANDO POLÍGONOS (VERSÃO CORRIGIDA) ===');
     
     if (!window.dadosCompletos || window.dadosCompletos.length === 0) {
         console.error('❌ dadosCompletos não disponível');
-        console.error('❌ Verifique se os dados foram carregados corretamente');
         return;
     }
 
@@ -316,36 +314,25 @@ function addPolygonsToMap() {
     console.log(`📍 Dados válidos para mapa: ${dadosValidosParaMapa.length}`);
     
     if (dadosValidosParaMapa.length === 0) {
-        console.error('❌ PROBLEMA CRÍTICO: Nenhum dado válido para o mapa!');
-        console.log('🔍 Analisando primeiro item dos dados filtrados:');
-        if (dadosFiltrados.length > 0) {
-            const primeiro = dadosFiltrados[0];
-            console.log('  - Item:', primeiro.id);
-            console.log('  - Tem coordinates:', !!primeiro.coordinates);
-            console.log('  - Coordinates length:', primeiro.coordinates?.length);
-            console.log('  - Tem centroid:', !!primeiro.centroid);
-            console.log('  - Centroid:', primeiro.centroid);
-            console.log('  - Centroid em São Luís:', 
-                primeiro.centroid && 
-                primeiro.centroid[0] >= -3 && primeiro.centroid[0] <= -2 &&
-                primeiro.centroid[1] >= -45 && primeiro.centroid[1] <= -43
-            );
-        }
+        console.error('❌ Nenhum dado válido para o mapa!');
         return;
     }
     
-    // Calcular min/max para cores
+    // Calcular min/max para cores (APENAS valores > 0)
     const values = dadosValidosParaMapa
         .map(item => item.properties?.[currentField] || 0)
         .filter(val => val > 0);
     
+    let minValue, maxValue;
+    
     if (values.length === 0) {
         console.warn('⚠️ Nenhum valor válido para coloração, usando valores padrão');
-        values.push(1); // Valor padrão para evitar erro
+        minValue = 0;
+        maxValue = 1;
+    } else {
+        minValue = Math.min(...values);
+        maxValue = Math.max(...values);
     }
-    
-    const minValue = Math.min(...values);
-    const maxValue = Math.max(...values);
 
     console.log(`🎨 Coloração por: ${currentField}`);
     console.log(`📊 Valores: ${minValue.toFixed(2)} - ${maxValue.toFixed(2)}`);
@@ -357,33 +344,11 @@ function addPolygonsToMap() {
     // Processar cada item válido
     dadosValidosParaMapa.forEach((item, index) => {
         try {
-            // Verificar novamente se coordenadas são válidas
-            if (!item.coordinates || !Array.isArray(item.coordinates) || item.coordinates.length === 0) {
-                console.warn(`⚠️ Item ${item.id} sem coordenadas válidas`);
-                erros++;
-                return;
-            }
-
-            // Verificar formato das coordenadas para Leaflet
-            const coordsValidas = item.coordinates.every(coord => 
-                Array.isArray(coord) && 
-                coord.length === 2 && 
-                typeof coord[0] === 'number' && 
-                typeof coord[1] === 'number' &&
-                !isNaN(coord[0]) && !isNaN(coord[1])
-            );
-
-            if (!coordsValidas) {
-                console.warn(`⚠️ Item ${item.id} com coordenadas em formato inválido`);
-                erros++;
-                return;
-            }
-
             // Calcular cor
             const fieldValue = item.properties?.[currentField] || 0;
             const color = getGradientColor(fieldValue, minValue, maxValue);
 
-            // Criar polígono
+            // Criar polígono com gradiente Laranja → Vermelho
             const polygon = L.polygon(item.coordinates, {
                 color: color,
                 weight: 0,
@@ -396,8 +361,8 @@ function addPolygonsToMap() {
             polygon.itemId = item.id;
             polygon.itemData = item;
 
-            // Popup
-            const popupContent = createPopupContent(item);
+            // POPUP CONFORME ESPECIFICAÇÃO
+            const popupContent = createPopupContentFixed(item);
             polygon.bindPopup(popupContent);
 
             // Eventos do polígono
@@ -432,12 +397,10 @@ function addPolygonsToMap() {
 
             // Debug dos primeiros 3 polígonos
             if (index < 3) {
-                console.log(`✅ Polígono ${item.id} adicionado com sucesso:`);
-                console.log(`   Coordenadas: ${item.coordinates.length} pontos`);
-                console.log(`   Centroide: [${item.centroid[0].toFixed(6)}, ${item.centroid[1].toFixed(6)}]`);
+                console.log(`✅ Polígono ${item.id} adicionado:`);
+                console.log(`   Bairro: ${item.properties?.bairro}`);
                 console.log(`   Valor ${currentField}: ${fieldValue}`);
                 console.log(`   Cor: ${color}`);
-                console.log(`   Bairro: ${item.properties?.bairro}`);
             }
 
         } catch (error) {
@@ -454,23 +417,16 @@ function addPolygonsToMap() {
     // Ajustar zoom se há polígonos
     if (sucessos > 0) {
         try {
-            const bounds = layerGroup.getBounds();
+            // CORREÇÃO: Usar featureGroup para getBounds
+            const featureGroup = new L.FeatureGroup(layerGroup.getLayers());
+            const bounds = featureGroup.getBounds();
             if (bounds.isValid()) {
                 mapInstance.fitBounds(bounds, { padding: [20, 20] });
-                console.log('✅ Zoom ajustado automaticamente para os polígonos');
-            } else {
-                console.warn('⚠️ Bounds inválidos, mantendo zoom atual');
+                console.log('✅ Zoom ajustado automaticamente');
             }
         } catch (error) {
             console.warn('⚠️ Erro ao ajustar zoom:', error);
         }
-    } else {
-        console.error('❌ NENHUM POLÍGONO FOI ADICIONADO AO MAPA!');
-        console.log('🔍 Verifique se:');
-        console.log('  1. Os dados foram carregados corretamente');
-        console.log('  2. As coordenadas estão no formato correto');
-        console.log('  3. A conversão UTM→WGS84 está funcionando');
-        console.log('  4. As coordenadas estão dentro dos bounds de São Luís');
     }
 
     // Criar legenda se há polígonos
@@ -490,23 +446,23 @@ function addPolygonsToMap() {
 }
 
 // ================================
-// CRIAR CONTEÚDO DO POPUP - FORMATAÇÃO CORRIGIDA
+// CRIAR CONTEÚDO DO POPUP - CONFORME ESPECIFICAÇÃO
 // ================================
-function createPopupContent(item) {
+function createPopupContentFixed(item) {
     const props = item.properties;
     
+    // POPUP CONFORME ESPECIFICAÇÃO EXATA
     return `
-        <div style="min-width: 280px;">
-            <h4 style="margin: 0 0 10px 0; color: #1e3a5f;">
-                🏠 Imóvel ${window.formatNumber ? window.formatNumber(item.id, 0) : item.id}
+        <div style="min-width: 280px; font-family: Arial, sans-serif;">
+            <h4 style="margin: 0 0 10px 0; color: #1e3a5f; font-size: 16px;">
+                🏠 Imóvel ${item.id}
             </h4>
-            <p><strong>Bairro:</strong> ${props.bairro || 'N/A'}</p>
-            <p><strong>Área:</strong> ${window.formatNumber ? window.formatNumber(props.area_edificacao, 2) : (props.area_edificacao || 0).toFixed(2)} m²</p>
-            <p><strong>Produção:</strong> ${window.formatNumber ? window.formatNumber(props.producao_telhado, 2) : (props.producao_telhado || 0).toFixed(2)} kW</p>
-            <p><strong>Capacidade/m²:</strong> ${window.formatNumber ? window.formatNumber(props.capacidade_por_m2, 2) : (props.capacidade_por_m2 || 0).toFixed(2)} kW/m²</p>
-            <p><strong>Radiação:</strong> ${window.formatNumber ? window.formatNumber(props.radiacao_max, 2) : (props.radiacao_max || 0).toFixed(2)} kW/m²</p>
-            <p><strong>Placas:</strong> ${window.formatNumber ? window.formatNumber(props.quantidade_placas, 0) : (props.quantidade_placas || 0)} unidades</p>
-            <p><strong>Coordenadas:</strong> ${item.centroid[0].toFixed(4)}, ${item.centroid[1].toFixed(4)}</p>
+            <p style="margin: 5px 0;"><strong>Bairro:</strong> ${props.bairro}</p>
+            <p style="margin: 5px 0;"><strong>Área:</strong> ${window.formatNumber ? window.formatNumber(props.area_edificacao, 2) : (props.area_edificacao || 0).toFixed(2)} m²</p>
+            <p style="margin: 5px 0;"><strong>Produção:</strong> ${window.formatNumber ? window.formatNumber(props.producao_telhado, 2) : (props.producao_telhado || 0).toFixed(2)} kW</p>
+            <p style="margin: 5px 0;"><strong>Radiação:</strong> ${window.formatNumber ? window.formatNumber(props.radiacao_max, 2) : (props.radiacao_max || 0).toFixed(2)} kW/m²</p>
+            <p style="margin: 5px 0;"><strong>Placas:</strong> ${window.formatNumber ? window.formatNumber(props.quantidade_placas, 0) : (props.quantidade_placas || 0)} unidades</p>
+            <p style="margin: 5px 0;"><strong>Renda Total:</strong> R$ ${window.formatNumber ? window.formatNumber(props.renda_domiciliar_per_capita, 2) : (props.renda_domiciliar_per_capita || 0).toFixed(2)}</p>
         </div>
     `;
 }
@@ -612,16 +568,15 @@ function diagnosticMap() {
     
     if (window.dadosCompletos && window.dadosCompletos.length > 0) {
         const primeiro = window.dadosCompletos[0];
-        console.log('Primeiro item válido:');
+        console.log('Primeiro item:');
         console.log('  - ID:', primeiro.id);
-        console.log('  - Coordinates:', primeiro.coordinates?.length);
-        console.log('  - Centroid:', primeiro.centroid);
         console.log('  - Bairro:', primeiro.properties?.bairro);
-        console.log('  - Em São Luís:', 
-            primeiro.centroid && 
-            primeiro.centroid[0] >= -3 && primeiro.centroid[0] <= -2 &&
-            primeiro.centroid[1] >= -45 && primeiro.centroid[1] <= -43
-        );
+        console.log('  - Área:', primeiro.properties?.area_edificacao);
+        console.log('  - Produção:', primeiro.properties?.producao_telhado);
+        console.log('  - Capacidade/m²:', primeiro.properties?.capacidade_por_m2);
+        console.log('  - Radiação:', primeiro.properties?.radiacao_max);
+        console.log('  - Placas:', primeiro.properties?.quantidade_placas);
+        console.log('  - Centroid:', primeiro.centroid);
     }
 }
 
@@ -641,28 +596,33 @@ function testeRapidoMapa() {
         layerGroup.clearLayers();
     }
     
-    // Pegar primeiros 5 itens válidos
+    // Pegar primeiros 5 itens válidos com dados reais
     const itensValidos = window.dadosCompletos.filter(item => 
         item.coordinates && item.coordinates.length > 0 &&
-        item.centroid && item.centroid.length === 2
+        item.centroid && item.centroid.length === 2 &&
+        item.properties?.area_edificacao > 0
     ).slice(0, 5);
     
-    console.log(`🧪 Testando com ${itensValidos.length} itens`);
+    console.log(`🧪 Testando com ${itensValidos.length} itens válidos`);
     
     itensValidos.forEach((item, index) => {
         try {
+            const color = GRADIENT_COLORS[index % GRADIENT_COLORS.length];
+            
             const polygon = L.polygon(item.coordinates, {
-                color: '#FF8C00',
+                color: color,
                 weight: 2,
                 opacity: 1,
-                fillColor: '#FFB347',
+                fillColor: color,
                 fillOpacity: 0.7
             });
             
-            polygon.bindPopup(`Teste - Imóvel ${item.id}`);
+            const popupContent = createPopupContentFixed(item);
+            polygon.bindPopup(popupContent);
+            
             layerGroup.addLayer(polygon);
             
-            console.log(`✅ Polígono teste ${index + 1} adicionado: ${item.id}`);
+            console.log(`✅ Polígono teste ${index + 1} adicionado: ${item.id} (${item.properties.bairro})`);
             
         } catch (error) {
             console.error(`❌ Erro no polígono teste ${item.id}:`, error);
@@ -671,9 +631,70 @@ function testeRapidoMapa() {
     
     // Ajustar zoom
     if (layerGroup.getLayers().length > 0) {
-        mapInstance.fitBounds(layerGroup.getBounds());
-        console.log('✅ Zoom ajustado para polígonos de teste');
+        try {
+            const featureGroup = new L.FeatureGroup(layerGroup.getLayers());
+            mapInstance.fitBounds(featureGroup.getBounds());
+            console.log('✅ Zoom ajustado para polígonos de teste');
+        } catch (error) {
+            console.warn('⚠️ Erro ao ajustar zoom no teste:', error);
+        }
     }
+}
+
+// ================================
+// VERIFICAR DADOS VÁLIDOS NO MAPA
+// ================================
+function verificarDadosValidosMapa() {
+    console.log('🔍 === VERIFICAÇÃO DE DADOS VÁLIDOS ===');
+    
+    if (!window.dadosCompletos || window.dadosCompletos.length === 0) {
+        console.error('❌ Nenhum dado carregado');
+        return;
+    }
+    
+    const total = window.dadosCompletos.length;
+    let comCoordenadas = 0;
+    let comCentroide = 0;
+    let emSaoLuis = 0;
+    let comDadosExcel = 0;
+    let comValoresReais = 0;
+    
+    window.dadosCompletos.forEach(item => {
+        if (item.coordinates && item.coordinates.length > 0) {
+            comCoordenadas++;
+        }
+        
+        if (item.centroid && item.centroid.length === 2) {
+            comCentroide++;
+            
+            const [lat, lng] = item.centroid;
+            if (lat >= -3 && lat <= -2 && lng >= -45 && lng <= -43) {
+                emSaoLuis++;
+            }
+        }
+        
+        if (item.isLinked) {
+            comDadosExcel++;
+        }
+        
+        if (item.properties?.area_edificacao > 0 || 
+            item.properties?.producao_telhado > 0 || 
+            item.properties?.capacidade_por_m2 > 0) {
+            comValoresReais++;
+        }
+    });
+    
+    console.log(`📊 Total de itens: ${total}`);
+    console.log(`📍 Com coordenadas: ${comCoordenadas}`);
+    console.log(`🎯 Com centroide: ${comCentroide}`);
+    console.log(`🗺️ Em São Luís: ${emSaoLuis}`);
+    console.log(`📋 Com dados Excel: ${comDadosExcel}`);
+    console.log(`📈 Com valores reais: ${comValoresReais}`);
+    
+    // Verificar bairros
+    const bairros = [...new Set(window.dadosCompletos.map(item => item.properties?.bairro).filter(b => b && b !== 'Não informado'))];
+    console.log(`🏘️ Bairros únicos: ${bairros.length}`);
+    console.log('🏘️ Lista:', bairros.slice(0, 10));
 }
 
 // ================================
@@ -693,7 +714,10 @@ window.autoZoomToBairro = autoZoomToBairro;
 window.formatNumberWithDots = formatNumberWithDots;
 window.diagnosticMap = diagnosticMap;
 window.testeRapidoMapa = testeRapidoMapa;
+window.verificarDadosValidosMapa = verificarDadosValidosMapa;
+window.createPopupContentFixed = createPopupContentFixed;
 
-console.log('✅ MAP.JS FINAL CORRIGIDO - Problemas de exibição resolvidos!');
-console.log('🧪 Execute testeRapidoMapa() para teste rápido');
-console.log('🔍 Execute diagnosticMap() para diagnóstico');
+console.log('✅ MAP.JS CORRIGIDO COMPLETO - Popup e gradiente conforme especificação!');
+console.log('🧪 Execute testeRapidoMapa() para teste');
+console.log('🔍 Execute verificarDadosValidosMapa() para diagnóstico');
+console.log('🔍 Execute diagnosticMap() para verificação geral');
