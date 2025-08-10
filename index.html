@@ -281,15 +281,13 @@
         </div>
     </div>
 
-    <!-- Scripts em ordem CORRIGIDA E OTIMIZADA -->
+    <!-- Scripts em ordem SIMPLIFICADA - SEM SISTEMA DE MERGE SEPARADO -->
     
-    <!-- 1. Bibliotecas Base (Leaflet) -->
+    <!-- 1. Bibliotecas Base -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    
-    <!-- 2. Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
     
-    <!-- 3. XLSX com carregamento otimizado -->
+    <!-- 2. Script de inicialização -->
     <script>
         console.log('🔄 Iniciando carregamento do SolarMap...');
         
@@ -371,9 +369,10 @@
             }
         });
         
-        // Carregar XLSX primeiro, depois scripts customizados
+        // Carregar scripts em ordem SIMPLIFICADA
         async function initializeSolarMap() {
             try {
+                // 1. XLSX
                 updateLoadingStatus('📚 Carregando bibliotecas...', 'XLSX');
                 await loadScriptSync('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js', 'XLSX Library');
                 
@@ -381,9 +380,11 @@
                     throw new Error('XLSX não foi carregado corretamente');
                 }
                 
-                updateLoadingStatus('📊 Carregando módulos...', 'Dashboard');
-                await loadScriptSync('js/dashboard.js', 'Dashboard Principal');
+                // 2. Dashboard com merge integrado
+                updateLoadingStatus('📊 Carregando dashboard...', 'Dashboard com Merge Integrado');
+                await loadScriptSync('js/dashboard.js', 'Dashboard com Merge Integrado');
                 
+                // 3. Outros módulos
                 updateLoadingStatus('🗺️ Carregando módulos...', 'Mapa');
                 await loadScriptSync('js/map.js', 'Sistema de Mapas');
                 
@@ -411,7 +412,7 @@
                 // Marcar como inicializado
                 window.dashboardInitialized = true;
                 
-                // Inicializar dashboard
+                // Inicializar dashboard (que agora tem merge integrado)
                 await initializeDashboard();
                 
                 updateLoadingStatus('✅ Concluído!', 'SolarMap carregado com sucesso');
