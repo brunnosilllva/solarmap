@@ -150,22 +150,23 @@ function converterNumeroCorreto(valor) {
     const temPonto = valorString.includes('.');
     
     // Caso 1: Formato brasileiro com vírgula decimal
-    if (temVirgula) {
-        if (temPonto && temVirgula) {
-            // Formato: "1.234,56" (brasileiro com milhares)
+    if (temVirgula && temPonto) {
+        // Verificar qual é o último: vírgula ou ponto
+        const ultimaVirgula = valorString.lastIndexOf(',');
+        const ultimoPonto = valorString.lastIndexOf('.');
+        
+        if (ultimaVirgula > ultimoPonto) {
+            // Formato brasileiro: "1.234,56" 
             valorString = valorString.replace(/\./g, '').replace(',', '.');
         } else {
-            // Formato: "21,72" (brasileiro simples)
-            valorString = valorString.replace(',', '.');
-        }
-    }
-    // Caso 2: Formato americano "21.72" ou "1,234.56" - manter como está
-    else if (temPonto) {
-        // Se tem vírgula antes do ponto, é formato americano com milhares
-        if (valorString.includes(',') && valorString.lastIndexOf(',') < valorString.lastIndexOf('.')) {
+            // Formato americano: "1,234.56"
             valorString = valorString.replace(/,/g, '');
         }
+    } else if (temVirgula && !temPonto) {
+        // Só vírgula: formato brasileiro "21,72"
+        valorString = valorString.replace(',', '.');
     }
+    // Se só tem ponto ou nenhum dos dois, manter como está
     
     // Remover caracteres não numéricos (exceto ponto decimal e sinal)
     valorString = valorString.replace(/[^\d.-]/g, '');
