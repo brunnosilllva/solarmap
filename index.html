@@ -59,7 +59,7 @@
                 <div class="filter-group">
                     <label for="bairro-select">Bairros:</label>
                     <select id="bairro-select">
-                        <option value="">Carregando...</option>
+                        <option value="">Carregando bairros...</option>
                     </select>
                 </div>
                 <div class="filter-group">
@@ -78,6 +78,21 @@
                     </div>
                 </div>
             </div>
+        </div>
+
+        <!-- Status de Carregamento -->
+        <div id="loading-status" style="
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 20px;
+            text-align: center;
+            font-family: Arial, sans-serif;
+            display: none;
+        ">
+            <div id="loading-text">🔄 Carregando dados...</div>
+            <div id="loading-details" style="font-size: 12px; color: #666; margin-top: 5px;"></div>
         </div>
 
         <!-- Mapa -->
@@ -181,6 +196,40 @@
             </div>
         </div>
 
+        <!-- Debug Panel (apenas em desenvolvimento) -->
+        <div id="debug-panel" style="
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 10px;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 12px;
+            max-width: 300px;
+            display: none;
+            z-index: 1000;
+        ">
+            <div style="font-weight: bold; margin-bottom: 5px;">🔍 Debug Info</div>
+            <div id="debug-info">
+                <div>Dados: <span id="debug-data-count">0</span></div>
+                <div>Mapa: <span id="debug-map-status">❌</span></div>
+                <div>Polígonos: <span id="debug-polygons-count">0</span></div>
+                <div>Bairros: <span id="debug-bairros-count">0</span></div>
+            </div>
+            <button onclick="toggleDebugPanel()" style="
+                background: #007bff;
+                color: white;
+                border: none;
+                padding: 5px 10px;
+                border-radius: 4px;
+                margin-top: 10px;
+                cursor: pointer;
+                font-size: 10px;
+            ">Fechar</button>
+        </div>
+
         <!-- Seção de contato -->
         <div class="contact-section">
             <h3>📞 Contato SolarMap</h3>
@@ -212,7 +261,7 @@
         </div>
     </div>
 
-    <!-- Scripts em ordem RIGOROSAMENTE CONTROLADA -->
+    <!-- Scripts em ordem CORRIGIDA E OTIMIZADA -->
     
     <!-- 1. Bibliotecas Base (Leaflet) -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -220,111 +269,159 @@
     <!-- 2. Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
     
-    <!-- 3. XLSX OBRIGATÓRIO - AGUARDA CARREGAMENTO -->
+    <!-- 3. XLSX com carregamento otimizado -->
     <script>
-        console.log('🔄 Carregando XLSX...');
+        console.log('🔄 Iniciando carregamento do SolarMap...');
+        
+        // Função para mostrar status de carregamento
+        function updateLoadingStatus(text, details = '') {
+            const statusDiv = document.getElementById('loading-status');
+            const textDiv = document.getElementById('loading-text');
+            const detailsDiv = document.getElementById('loading-details');
+            
+            if (statusDiv && textDiv) {
+                statusDiv.style.display = 'block';
+                textDiv.textContent = text;
+                if (detailsDiv) {
+                    detailsDiv.textContent = details;
+                }
+            }
+            console.log(`📋 ${text} ${details}`);
+        }
+        
+        // Função para esconder status de carregamento
+        function hideLoadingStatus() {
+            const statusDiv = document.getElementById('loading-status');
+            if (statusDiv) {
+                statusDiv.style.display = 'none';
+            }
+        }
         
         // Função para carregar script de forma síncrona
-        function loadScriptSync(src) {
+        function loadScriptSync(src, description = '') {
             return new Promise((resolve, reject) => {
+                updateLoadingStatus('🔄 Carregando...', description || src);
+                
                 const script = document.createElement('script');
                 script.src = src;
                 script.onload = () => {
-                    console.log('✅ Script carregado:', src);
+                    console.log('✅ Script carregado:', description || src);
                     resolve();
                 };
                 script.onerror = () => {
-                    console.error('❌ Erro ao carregar:', src);
+                    console.error('❌ Erro ao carregar:', description || src);
                     reject(new Error(`Falha ao carregar: ${src}`));
                 };
                 document.head.appendChild(script);
             });
         }
         
-        // Carregar XLSX primeiro, depois continuar
-        loadScriptSync('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js')
-            .then(() => {
-                console.log('✅ XLSX carregado com sucesso:', typeof XLSX);
+        // Atualizar debug panel
+        function updateDebugPanel() {
+            if (document.getElementById('debug-panel').style.display !== 'none') {
+                const dataCount = window.dadosCompletos?.length || 0;
+                const mapStatus = window.mapInstance ? '✅' : '❌';
+                const polygonsCount = window.layerGroup?.getLayers().length || 0;
+                const bairrosCount = Object.keys(window.estatisticasPorBairro || {}).length;
                 
-                // Aguardar um pouco para garantir que está disponível
-                setTimeout(() => {
-                    if (typeof XLSX === 'undefined') {
-                        console.error('❌ XLSX ainda não está disponível!');
-                        alert('❌ Erro: Não foi possível carregar a biblioteca XLSX');
-                        return;
-                    }
-                    
-                    console.log('✅ XLSX confirmado disponível');
-                    
-                    // Agora carregar os scripts customizados
-                    const scriptsToLoad = [
-                        'js/dashboard.js',
-                        'js/map.js', 
-                        'js/charts.js',
-                        'js/filters.js'
-                    ];
-                    
-                    // Carregar scripts sequencialmente
-                    let scriptIndex = 0;
-                    function loadNextScript() {
-                        if (scriptIndex >= scriptsToLoad.length) {
-                            // Todos scripts carregados, inicializar
-                            setTimeout(initializeSolarMap, 100);
-                            return;
-                        }
-                        
-                        const scriptSrc = scriptsToLoad[scriptIndex];
-                        loadScriptSync(scriptSrc)
-                            .then(() => {
-                                scriptIndex++;
-                                loadNextScript();
-                            })
-                            .catch(error => {
-                                console.error('❌ Erro ao carregar script:', error);
-                                alert(`❌ Erro ao carregar: ${scriptSrc}`);
-                            });
-                    }
-                    
-                    loadNextScript();
-                }, 200);
-            })
-            .catch(error => {
-                console.error('❌ Erro crítico ao carregar XLSX:', error);
-                alert('❌ Erro crítico: Não foi possível carregar a biblioteca XLSX');
-            });
-        
-        // Função de inicialização final
-        function initializeSolarMap() {
-            console.log('🚀 Inicializando SolarMap Dashboard...');
-            
-            // Verificações finais
-            if (typeof XLSX === 'undefined') {
-                console.error('❌ XLSX não disponível na inicialização!');
-                alert('❌ Biblioteca XLSX não está disponível');
-                return;
-            }
-            
-            if (typeof initializeDashboard !== 'function') {
-                console.error('❌ initializeDashboard não encontrada!');
-                alert('❌ Função de inicialização não encontrada');
-                return;
-            }
-            
-            console.log('✅ Todas as verificações passaram. Iniciando...');
-            console.log('📋 XLSX disponível:', typeof XLSX);
-            console.log('📋 initializeDashboard disponível:', typeof initializeDashboard);
-            
-            // Marcar como inicializado
-            window.dashboardInitialized = true;
-            
-            // Inicializar dashboard
-            try {
-                initializeDashboard();
-            } catch (error) {
-                console.error('❌ Erro na inicialização:', error);
-                alert('❌ Erro ao inicializar o dashboard: ' + error.message);
+                document.getElementById('debug-data-count').textContent = dataCount;
+                document.getElementById('debug-map-status').textContent = mapStatus;
+                document.getElementById('debug-polygons-count').textContent = polygonsCount;
+                document.getElementById('debug-bairros-count').textContent = bairrosCount;
             }
         }
+        
+        // Toggle debug panel
+        function toggleDebugPanel() {
+            const panel = document.getElementById('debug-panel');
+            if (panel.style.display === 'none' || !panel.style.display) {
+                panel.style.display = 'block';
+                updateDebugPanel();
+                setInterval(updateDebugPanel, 2000);
+            } else {
+                panel.style.display = 'none';
+            }
+        }
+        
+        // Atalho para debug (Ctrl+Shift+D)
+        document.addEventListener('keydown', function(e) {
+            if (e.ctrlKey && e.shiftKey && e.key === 'D') {
+                e.preventDefault();
+                toggleDebugPanel();
+            }
+        });
+        
+        // Carregar XLSX primeiro, depois scripts customizados
+        async function initializeSolarMap() {
+            try {
+                updateLoadingStatus('📚 Carregando bibliotecas...', 'XLSX');
+                await loadScriptSync('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js', 'XLSX Library');
+                
+                if (typeof XLSX === 'undefined') {
+                    throw new Error('XLSX não foi carregado corretamente');
+                }
+                
+                updateLoadingStatus('📊 Carregando módulos...', 'Dashboard');
+                await loadScriptSync('js/dashboard.js', 'Dashboard Principal');
+                
+                updateLoadingStatus('🗺️ Carregando módulos...', 'Mapa');
+                await loadScriptSync('js/map.js', 'Sistema de Mapas');
+                
+                updateLoadingStatus('📈 Carregando módulos...', 'Gráficos');
+                await loadScriptSync('js/charts.js', 'Sistema de Gráficos');
+                
+                updateLoadingStatus('🔍 Carregando módulos...', 'Filtros');
+                await loadScriptSync('js/filters.js', 'Sistema de Filtros');
+                
+                updateLoadingStatus('🚀 Inicializando...', 'SolarMap Dashboard');
+                
+                // Verificações finais
+                if (typeof XLSX === 'undefined') {
+                    throw new Error('XLSX não disponível');
+                }
+                
+                if (typeof initializeDashboard !== 'function') {
+                    throw new Error('initializeDashboard não encontrada');
+                }
+                
+                console.log('✅ Todas as verificações passaram. Iniciando...');
+                console.log('📋 XLSX disponível:', typeof XLSX);
+                console.log('📋 initializeDashboard disponível:', typeof initializeDashboard);
+                
+                // Marcar como inicializado
+                window.dashboardInitialized = true;
+                
+                // Inicializar dashboard
+                await initializeDashboard();
+                
+                updateLoadingStatus('✅ Concluído!', 'SolarMap carregado com sucesso');
+                setTimeout(hideLoadingStatus, 2000);
+                
+            } catch (error) {
+                console.error('❌ Erro na inicialização:', error);
+                updateLoadingStatus('❌ Erro!', error.message);
+                
+                // Mostrar painel de debug em caso de erro
+                setTimeout(() => {
+                    document.getElementById('debug-panel').style.display = 'block';
+                    updateDebugPanel();
+                }, 1000);
+            }
+        }
+        
+        // Iniciar quando DOM estiver carregado
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initializeSolarMap);
+        } else {
+            initializeSolarMap();
+        }
+        
+        // Exportar funções globais
+        window.updateLoadingStatus = updateLoadingStatus;
+        window.hideLoadingStatus = hideLoadingStatus;
+        window.toggleDebugPanel = toggleDebugPanel;
+        window.updateDebugPanel = updateDebugPanel;
+        
     </script>
 </body>
 </html>
