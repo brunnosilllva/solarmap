@@ -1,8 +1,9 @@
 // ================================
 // DASHBOARD PRINCIPAL - SOLARMAP
 // VERSÃO FINAL LIMPA E COMPLETA
+// COM CORREÇÃO DE NORMALIZAÇÃO NUMÉRICA
 // ================================
-console.log('🚀 Dashboard SolarMap - VERSÃO FINAL LIMPA');
+console.log('🚀 Dashboard SolarMap - VERSÃO FINAL LIMPA (COM CORREÇÃO NUMÉRICA)');
 
 // ================================
 // VARIÁVEIS GLOBAIS
@@ -129,7 +130,91 @@ function extrairObjectIdExcel(row, fallbackIndex) {
 }
 
 // ================================
-// NORMALIZAÇÃO DE DADOS
+// FUNÇÃO CORRIGIDA PARA CONVERSÃO DE NÚMEROS
+// ================================
+function converterNumeroCorreto(valor) {
+    if (valor === null || valor === undefined || valor === '') {
+        return null;
+    }
+    
+    // Converter para string primeiro
+    let valorString = String(valor).trim();
+    
+    // Se já é um número válido, retornar
+    const numeroDirecto = parseFloat(valorString);
+    if (!isNaN(numeroDirecto)) {
+        return numeroDirecto;
+    }
+    
+    // CORREÇÃO: Tratar formato brasileiro (vírgula = decimal, ponto = milhares)
+    // Exemplo: "1.234,56" → 1234.56
+    // Exemplo: "21,72" → 21.72
+    // Exemplo: "65.00" → 65.00 (já está correto)
+    
+    // Verificar se tem vírgula (formato brasileiro com vírgula decimal)
+    if (valorString.includes(',')) {
+        // Formato: "21,72" ou "1.234,56"
+        // Remover pontos (milhares) e trocar vírgula por ponto (decimal)
+        valorString = valorString
+            .replace(/\./g, '')  // Remove pontos (separador de milhares)
+            .replace(',', '.');  // Troca vírgula por ponto (decimal)
+    }
+    // Senão, assume que já está no formato americano (ponto = decimal)
+    
+    // Remover caracteres não numéricos (exceto ponto e sinal)
+    valorString = valorString.replace(/[^\d.-]/g, '');
+    
+    const valorConvertido = parseFloat(valorString);
+    return isNaN(valorConvertido) ? null : valorConvertido;
+}
+
+// ================================
+// FUNÇÃO PARA PROCESSAR DADOS MENSAIS
+// ================================
+function processarDadosMensais(row, tipo) {
+    let campos = [];
+    
+    if (tipo === 'producao') {
+        campos = [
+            ' Produção de energia no mês de janeiro kW do telhado do edifício ',
+            ' Produção de energia no mês de fevereiro kW do telhado do edifício ',
+            ' Produção de energia no mês de março kW do telhado do edifício ',
+            ' Produção de energia no mês de abril kW do telhado do edifício ',
+            ' Produção de energia no mês de maio kW do telhado do edifício ',
+            ' Produção de energia no mês de junho kW do telhado do edifício ',
+            ' Produção de energia no mês de julho kW do telhado do edifício ',
+            ' Produção de energia no mês de agosto kW do telhado do edifício ',
+            ' Produção de energia no mês de setembro kW do telhado do edifício ',
+            ' Produção de energia no mês de outubro kW do telhado do edifício ',
+            ' Produção de energia no mês de novembro kW do telhado do edifício ',
+            ' Produção de energia no mês de dezembro kW do telhado do edifício '
+        ];
+    } else if (tipo === 'radiacao') {
+        campos = [
+            ' Quantidade de Radiação Solar no mês de janeiro (kW.m²) ',
+            ' Quantidade de Radiação Solar no mês de fevereiro (kW.m²) ',
+            ' Quantidade de Radiação Solar no mês de março (kW.m²) ',
+            ' Quantidade de Radiação Solar no mês de abril (kW.m²) ',
+            ' Quantidade de Radiação Solar no mês de maio (kW.m²) ',
+            ' Quantidade de Radiação Solar no mês de junho (kW.m²) ',
+            ' Quantidade de Radiação Solar no mês de julho (kW.m²) ',
+            ' Quantidade de Radiação Solar no mês de agosto (kW.m²) ',
+            ' Quantidade de Radiação Solar no mês de setembro (kW.m²) ',
+            ' Quantidade de Radiação Solar no mês de outubro (kW.m²) ',
+            ' Quantidade de Radiação Solar no mês de novembro (kW.m²) ',
+            ' Quantidade de Radiação Solar no mês de dezembro (kW.m²) '
+        ];
+    }
+    
+    return campos.map(campo => {
+        const valor = row[campo];
+        const valorConvertido = converterNumeroCorreto(valor);
+        return valorConvertido !== null ? valorConvertido : 0;
+    });
+}
+
+// ================================
+// NORMALIZAÇÃO DE DADOS (CORRIGIDA)
 // ================================
 function normalizarDadosExcel(row) {
     const mapeamento = {
@@ -141,6 +226,7 @@ function normalizarDadosExcel(row) {
         ' Produção de energia kW do telhado do edifício ': 'producao_telhado',
         ' Capacidade de Produção de energia em kW por m² ': 'capacidade_por_m2',
         ' Quantidade de Radiação Máxima Solar nos mêses (kW.m² ': 'radiacao_max',
+        'Quantidade de Radiação Máxima Solar nos mêses (kW.m²': 'radiacao_max',
         ' Quantidade de Placas Fotovoltaicas capaz de gerar a energia gerada do imovel ': 'quantidade_placas',
         ' Capacidade de Produção de energia em Placas Fotovoltaicas em kW.h.dia ': 'capacidade_placas_dia',
         ' Capacidade de Produção de energia em Placas Fotovoltaicas em kW.h.mês ': 'capacidade_placas_mes',
@@ -156,14 +242,16 @@ function normalizarDadosExcel(row) {
         const campoNormalizado = mapeamento[chave] || chave.toLowerCase().replace(/\s+/g, '_');
         
         if (valor !== null && valor !== undefined && valor !== '') {
+            // Campo de bairro - manter como string
             if (chave.includes('Bairros') || campoNormalizado === 'bairro') {
                 normalizado[campoNormalizado] = String(valor).trim();
             } else {
-                const valorLimpo = String(valor).replace(/\./g, '').replace(',', '.').replace(/[^\d.-]/g, '');
-                const valorNumerico = parseFloat(valorLimpo);
-                normalizado[campoNormalizado] = isNaN(valorNumerico) ? String(valor).trim() : valorNumerico;
+                // CORREÇÃO: Usar a função melhorada para números
+                const valorNumerico = converterNumeroCorreto(valor);
+                normalizado[campoNormalizado] = valorNumerico !== null ? valorNumerico : String(valor).trim();
             }
         } else {
+            // Valores padrão
             if (chave.includes('Bairros') || campoNormalizado === 'bairro') {
                 normalizado[campoNormalizado] = 'Não informado';
             } else {
@@ -172,9 +260,12 @@ function normalizarDadosExcel(row) {
         }
     });
     
-    // Dados mensais (simplificado)
-    normalizado.dados_mensais_producao = new Array(12).fill(0);
-    normalizado.dados_mensais_radiacao = new Array(12).fill(0);
+    // Processar dados mensais corrigidos
+    const dadosMensaisProducao = processarDadosMensais(row, 'producao');
+    const dadosMensaisRadiacao = processarDadosMensais(row, 'radiacao');
+    
+    normalizado.dados_mensais_producao = dadosMensaisProducao;
+    normalizado.dados_mensais_radiacao = dadosMensaisRadiacao;
     
     return normalizado;
 }
@@ -506,6 +597,77 @@ function updateRelatorio(imovel = null) {
 }
 
 // ================================
+// FUNÇÃO PARA TESTAR A CONVERSÃO
+// ================================
+function testarConversaoNumeros() {
+    console.log('🧪 === TESTE DE CONVERSÃO DE NÚMEROS ===');
+    
+    const testes = [
+        '21.72',    // Deveria ser 21.72
+        '21,72',    // Deveria ser 21.72
+        '65.00',    // Deveria ser 65.00
+        '65,00',    // Deveria ser 65.00
+        '1.234,56', // Deveria ser 1234.56
+        '1,234.56', // Deveria ser 1234.56
+        '49.00',    // Deveria ser 49.00
+        '0.15',     // Deveria ser 0.15
+        '0,15'      // Deveria ser 0.15
+    ];
+    
+    testes.forEach(teste => {
+        const resultado = converterNumeroCorreto(teste);
+        console.log(`"${teste}" → ${resultado}`);
+    });
+}
+
+// ================================
+// FUNÇÃO PARA REPROCESSAR DADOS
+// ================================
+function reprocessarDados() {
+    console.log('🔄 === REPROCESSANDO DADOS COM CORREÇÃO ===');
+    
+    if (!window.dadosExcelRaw || window.dadosExcelRaw.length === 0) {
+        console.error('❌ Dados Excel não disponíveis');
+        return;
+    }
+    
+    console.log('📊 Reprocessando com correção numérica...');
+    
+    // Executar merge novamente
+    executarMergeCompleto().then(() => {
+        calcularEstatisticas();
+        calcularEstatisticasPorBairro();
+        updateSummaryCards();
+        
+        console.log('✅ Dados reprocessados com sucesso!');
+        
+        // Mostrar exemplo de dados corrigidos
+        const exemploComDados = dadosCompletos.find(item => 
+            item.isLinked && item.properties?.area_edificacao > 0
+        );
+        
+        if (exemploComDados) {
+            console.log('📋 Exemplo de dados corrigidos:');
+            console.log(`   ID: ${exemploComDados.id}`);
+            console.log(`   Bairro: ${exemploComDados.properties.bairro}`);
+            console.log(`   Área: ${exemploComDados.properties.area_edificacao} m²`);
+            console.log(`   Capacidade: ${exemploComDados.properties.capacidade_por_m2} kW/m²`);
+            console.log(`   Produção: ${exemploComDados.properties.producao_telhado} kW`);
+        }
+        
+        // Atualizar mapa se necessário
+        if (window.addPolygonsToMap) {
+            window.addPolygonsToMap();
+        }
+        
+        showMessage('✅ Dados reprocessados com correção numérica!');
+    }).catch(error => {
+        console.error('❌ Erro no reprocessamento:', error);
+        showMessage('❌ Erro no reprocessamento dos dados');
+    });
+}
+
+// ================================
 // DIAGNÓSTICO
 // ================================
 function diagnosticDataDetailed() {
@@ -616,7 +778,7 @@ function updateCharts(imovel = null) {
 // INICIALIZAÇÃO PRINCIPAL
 // ================================
 async function initializeDashboard() {
-    console.log('📊 === SOLARMAP - VERSÃO LIMPA ===');
+    console.log('📊 === SOLARMAP - VERSÃO LIMPA COM CORREÇÃO NUMÉRICA ===');
     
     try {
         // Verificações básicas
@@ -662,8 +824,8 @@ async function initializeDashboard() {
             window.populateBairroSelect();
         }
         
-        console.log('✅ === DASHBOARD LIMPO INICIALIZADO! ===');
-        showMessage('✅ SolarMap carregado com dados corrigidos!');
+        console.log('✅ === DASHBOARD LIMPO INICIALIZADO COM CORREÇÃO! ===');
+        showMessage('✅ SolarMap carregado com dados corrigidos e normalização numérica!');
         
         // Estatísticas finais
         console.log('📊 === ESTATÍSTICAS FINAIS ===');
@@ -780,6 +942,16 @@ window.estatisticasMerge = estatisticasMerge;
 window.executarMergeCompleto = executarMergeCompleto;
 window.converterSIRGAS2000ParaWGS84 = converterSIRGAS2000ParaWGS84;
 
-console.log('✅ DASHBOARD LIMPO E COMPLETO CARREGADO!');
+// ================================
+// EXPORTAÇÕES ADICIONAIS (CORREÇÃO NUMÉRICA)
+// ================================
+window.converterNumeroCorreto = converterNumeroCorreto;
+window.testarConversaoNumeros = testarConversaoNumeros;
+window.reprocessarDados = reprocessarDados;
+window.processarDadosMensais = processarDadosMensais;
+
+console.log('✅ DASHBOARD LIMPO E COMPLETO CARREGADO COM CORREÇÃO NUMÉRICA!');
 console.log('🔍 Execute diagnosticDataDetailed() para diagnóstico');
+console.log('🧪 Execute testarConversaoNumeros() para testar conversão');
+console.log('🔄 Execute reprocessarDados() para reaplicar correção');
 console.log('🧪 Execute window.dadosExcelRaw?.[0] para ver dados Excel');
