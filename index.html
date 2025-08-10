@@ -381,6 +381,10 @@
                     throw new Error('XLSX não foi carregado corretamente');
                 }
                 
+                // *** CORREÇÃO: CARREGAR SISTEMA DE MERGE PRIMEIRO ***
+                updateLoadingStatus('🔗 Carregando módulos...', 'Sistema de Merge');
+                await loadScriptSync('js/merge_dados_corrigido.js', 'Sistema de Merge');
+                
                 updateLoadingStatus('📊 Carregando módulos...', 'Dashboard');
                 await loadScriptSync('js/dashboard.js', 'Dashboard Principal');
                 
@@ -404,9 +408,15 @@
                     throw new Error('initializeDashboard não encontrada');
                 }
                 
+                // *** VERIFICAR SE SISTEMA DE MERGE ESTÁ CARREGADO ***
+                if (typeof window.inicializarSistemaMerge !== 'function') {
+                    throw new Error('Sistema de merge não carregado');
+                }
+                
                 console.log('✅ Todas as verificações passaram. Iniciando...');
                 console.log('📋 XLSX disponível:', typeof XLSX);
                 console.log('📋 initializeDashboard disponível:', typeof initializeDashboard);
+                console.log('📋 Sistema de merge disponível:', typeof window.inicializarSistemaMerge);
                 
                 // Marcar como inicializado
                 window.dashboardInitialized = true;
