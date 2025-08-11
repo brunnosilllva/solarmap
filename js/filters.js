@@ -369,7 +369,7 @@ function resetAllFilters() {
 }
 
 // ================================
-// FILTRAR POLÍGONOS NO MAPA - NOVA FUNÇÃO
+// FILTRAR POLÍGONOS NO MAPA - FUNÇÃO CORRIGIDA
 // ================================
 function filterMapPolygons() {
     console.log('🗺️ Filtrando polígonos no mapa...');
@@ -385,17 +385,42 @@ function filterMapPolygons() {
     
     let polígnosVisíveis = 0;
     let polígnosOcultos = 0;
+    let layersParaZoom = [];
     
     // Iterar por todos os layers no mapa
     window.layerGroup.eachLayer(function(layer) {
-        // Verificar se o layer tem dados do imóvel
-        const imovelData = layer.imovelData;
+        let imovelData = null;
+        let bairroDoImovel = null;
         
-        if (!imovelData || !imovelData.properties) {
-            return; // Skip se não tem dados
+        // CORREÇÃO: Tentar diferentes formas de acessar os dados
+        if (layer.imovelData) {
+            imovelData = layer.imovelData;
+            bairroDoImovel = imovelData.properties?.bairro;
+        } else if (layer.feature) {
+            // Se não tem imovelData, tentar através do feature
+            const featureId = layer.feature.properties?.OBJECTID || layer.feature.properties?.objectid;
+            if (featureId && window.dadosCompletos) {
+                imovelData = window.dadosCompletos.find(item => item.id == featureId);
+                if (imovelData) {
+                    bairroDoImovel = imovelData.properties?.bairro;
+                    // Anexar dados ao layer para próximas vezes
+                    layer.imovelData = imovelData;
+                }
+            }
+        } else if (layer.options && layer.options.imovelId && window.dadosCompletos) {
+            // Tentar pelo ID do imóvel nas opções
+            imovelData = window.dadosCompletos.find(item => item.id == layer.options.imovelId);
+            if (imovelData) {
+                bairroDoImovel = imovelData.properties?.bairro;
+                layer.imovelData = imovelData;
+            }
         }
         
-        const bairroDoImovel = imovelData.properties.bairro;
+        if (!imovelData || !bairroDoImovel) {
+            // Se não conseguiu encontrar dados, manter visível por padrão
+            console.warn('⚠️ Layer sem dados de bairro encontrado');
+            return;
+        }
         
         // Determinar se deve mostrar ou ocultar
         let mostrar = true;
@@ -422,12 +447,13 @@ function filterMapPolygons() {
         // Mostrar ou ocultar o polígono
         if (mostrar) {
             if (!window.mapInstance.hasLayer(layer)) {
-                window.mapInstance.addLayer(layer);
+                window.layerGroup.addLayer(layer);
             }
+            layersParaZoom.push(layer);
             polígnosVisíveis++;
         } else {
             if (window.mapInstance.hasLayer(layer)) {
-                window.mapInstance.removeLayer(layer);
+                window.layerGroup.removeLayer(layer);
             }
             polígnosOcultos++;
         }
@@ -438,68 +464,36 @@ function filterMapPolygons() {
     console.log(`   👁️ Polígonos ocultos: ${polígnosOcultos}`);
     
     // Ajustar zoom se houver polígonos visíveis
-    if (polígnosVisíveis > 0 && bairroSelecionado) {
+    if (layersParaZoom.length > 0) {
         setTimeout(() => {
-            ajustarZoomParaBairro(bairroSelecionado);
-        }, 100);
-    } else if (!bairroSelecionado) {
-        // Se mostrando todos, ajustar para todos os polígonos
-        setTimeout(() => {
-            ajustarZoomParaTodos();
+            ajustarZoomParaLayers(layersParaZoom, bairroSelecionado);
         }, 100);
     }
 }
 
 // ================================
-// AJUSTAR ZOOM PARA BAIRRO ESPECÍFICO
+// AJUSTAR ZOOM PARA LAYERS ESPECÍFICOS
 // ================================
-function ajustarZoomParaBairro(bairro) {
-    if (!window.mapInstance || !window.layerGroup) return;
-    
-    console.log(`🔍 Ajustando zoom para bairro: ${bairro}`);
-    
-    const layersVisíveis = [];
-    
-    window.layerGroup.eachLayer(function(layer) {
-        if (window.mapInstance.hasLayer(layer) && 
-            layer.imovelData?.properties?.bairro === bairro) {
-            layersVisíveis.push(layer);
-        }
-    });
-    
-    if (layersVisíveis.length > 0) {
-        try {
-            const group = new L.featureGroup(layersVisíveis);
-            window.mapInstance.fitBounds(group.getBounds(), {
-                padding: [20, 20],
-                maxZoom: 16
-            });
-            console.log(`✅ Zoom ajustado para ${layersVisíveis.length} polígonos do bairro ${bairro}`);
-        } catch (error) {
-            console.error('❌ Erro ao ajustar zoom para bairro:', error);
-        }
-    }
-}
-
-// ================================
-// AJUSTAR ZOOM PARA TODOS OS POLÍGONOS
-// ================================
-function ajustarZoomParaTodos() {
-    if (!window.mapInstance || !window.layerGroup) return;
-    
-    console.log('🌐 Ajustando zoom para todos os polígonos');
+function ajustarZoomParaLayers(layers, bairroSelecionado) {
+    if (!window.mapInstance || layers.length === 0) return;
     
     try {
-        const bounds = window.layerGroup.getBounds();
+        console.log(`🔍 Ajustando zoom para ${layers.length} polígonos${bairroSelecionado ? ` do bairro: ${bairroSelecionado}` : ''}`);
+        
+        const group = new L.featureGroup(layers);
+        const bounds = group.getBounds();
+        
         if (bounds.isValid()) {
             window.mapInstance.fitBounds(bounds, {
                 padding: [20, 20],
-                maxZoom: 15
+                maxZoom: bairroSelecionado ? 16 : 15
             });
-            console.log('✅ Zoom ajustado para todos os polígonos');
+            console.log(`✅ Zoom ajustado com sucesso`);
+        } else {
+            console.warn('⚠️ Bounds inválidos para ajuste de zoom');
         }
     } catch (error) {
-        console.error('❌ Erro ao ajustar zoom para todos:', error);
+        console.error('❌ Erro ao ajustar zoom:', error);
     }
 }
 function getFilterStats() {
@@ -798,8 +792,7 @@ window.forceReloadBairros = forceReloadBairros;
 window.testFilters = testFilters;
 window.populateBairroSelectWithFallback = populateBairroSelectWithFallback;
 window.filterMapPolygons = filterMapPolygons;
-window.ajustarZoomParaBairro = ajustarZoomParaBairro;
-window.ajustarZoomParaTodos = ajustarZoomParaTodos;
+window.ajustarZoomParaLayers = ajustarZoomParaLayers;
 
 console.log('✅ FILTROS FINAIS CORRIGIDOS - Bairros funcionando + Cards dinâmicos!');
 console.log('🔍 Execute diagnosticFilters() para diagnóstico');
