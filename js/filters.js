@@ -369,7 +369,66 @@ function resetAllFilters() {
 }
 
 // ================================
-// FILTRAR POLÍGONOS NO MAPA - FUNÇÃO CORRIGIDA
+// DIAGNÓSTICO DE LAYERS NO MAPA
+// ================================
+function diagnosticMapLayers() {
+    console.log('🔍 === DIAGNÓSTICO DE LAYERS NO MAPA ===');
+    
+    if (!window.layerGroup) {
+        console.error('❌ layerGroup não encontrado');
+        return;
+    }
+    
+    let totalLayers = 0;
+    let layersComImovelData = 0;
+    let layersComFeature = 0;
+    let layersComOptions = 0;
+    
+    console.log('📊 Analisando layers...');
+    
+    window.layerGroup.eachLayer(function(layer) {
+        totalLayers++;
+        
+        // Analisar apenas os primeiros 3 layers para debug
+        if (totalLayers <= 3) {
+            console.log(`\n🔍 Layer ${totalLayers}:`);
+            console.log('  - Tipo:', layer.constructor.name);
+            console.log('  - imovelData:', !!layer.imovelData);
+            console.log('  - feature:', !!layer.feature);
+            console.log('  - options:', !!layer.options);
+            
+            if (layer.imovelData) {
+                console.log('  - imovelData.id:', layer.imovelData.id);
+                console.log('  - imovelData.properties.bairro:', layer.imovelData.properties?.bairro);
+                layersComImovelData++;
+            }
+            
+            if (layer.feature) {
+                console.log('  - feature.properties:', Object.keys(layer.feature.properties || {}));
+                layersComFeature++;
+            }
+            
+            if (layer.options) {
+                console.log('  - options keys:', Object.keys(layer.options));
+                layersComOptions++;
+            }
+        } else {
+            // Contar os outros sem detalhar
+            if (layer.imovelData) layersComImovelData++;
+            if (layer.feature) layersComFeature++;
+            if (layer.options) layersComOptions++;
+        }
+    });
+    
+    console.log(`\n📊 Resumo:`);
+    console.log(`  - Total de layers: ${totalLayers}`);
+    console.log(`  - Com imovelData: ${layersComImovelData}`);
+    console.log(`  - Com feature: ${layersComFeature}`);
+    console.log(`  - Com options: ${layersComOptions}`);
+}
+
+// ================================
+// FILTRAR POLÍGONOS NO MAPA - FUNÇÃO CORRIGIDA V2
 // ================================
 function filterMapPolygons() {
     console.log('🗺️ Filtrando polígonos no mapa...');
@@ -386,39 +445,95 @@ function filterMapPolygons() {
     let polígnosVisíveis = 0;
     let polígnosOcultos = 0;
     let layersParaZoom = [];
+    let layersSemDados = 0;
+    
+    // Primeira passagem: diagnosticar se necessário
+    if (window.layerGroup.getLayers().length > 0) {
+        const primeiroLayer = window.layerGroup.getLayers()[0];
+        if (!primeiroLayer.imovelData && !primeiroLayer.feature) {
+            console.log('🔍 Executando diagnóstico de layers...');
+            diagnosticMapLayers();
+        }
+    }
     
     // Iterar por todos os layers no mapa
     window.layerGroup.eachLayer(function(layer) {
         let imovelData = null;
         let bairroDoImovel = null;
+        let imovelId = null;
         
-        // CORREÇÃO: Tentar diferentes formas de acessar os dados
-        if (layer.imovelData) {
+        // MÉTODO 1: Verificar se já tem imovelData anexado
+        if (layer.imovelData && layer.imovelData.properties) {
             imovelData = layer.imovelData;
-            bairroDoImovel = imovelData.properties?.bairro;
-        } else if (layer.feature) {
-            // Se não tem imovelData, tentar através do feature
-            const featureId = layer.feature.properties?.OBJECTID || layer.feature.properties?.objectid;
-            if (featureId && window.dadosCompletos) {
-                imovelData = window.dadosCompletos.find(item => item.id == featureId);
+            bairroDoImovel = imovelData.properties.bairro;
+            imovelId = imovelData.id;
+        }
+        // MÉTODO 2: Tentar através do feature
+        else if (layer.feature && layer.feature.properties) {
+            const featureProps = layer.feature.properties;
+            imovelId = featureProps.OBJECTID || featureProps.objectid || featureProps.id;
+            
+            if (imovelId && window.dadosCompletos) {
+                imovelData = window.dadosCompletos.find(item => 
+                    item.id == imovelId || 
+                    item.properties?.objectid == imovelId ||
+                    item.properties?.id == imovelId
+                );
+                
                 if (imovelData) {
                     bairroDoImovel = imovelData.properties?.bairro;
                     // Anexar dados ao layer para próximas vezes
                     layer.imovelData = imovelData;
                 }
             }
-        } else if (layer.options && layer.options.imovelId && window.dadosCompletos) {
-            // Tentar pelo ID do imóvel nas opções
-            imovelData = window.dadosCompletos.find(item => item.id == layer.options.imovelId);
-            if (imovelData) {
-                bairroDoImovel = imovelData.properties?.bairro;
-                layer.imovelData = imovelData;
+        }
+        // MÉTODO 3: Tentar através das opções
+        else if (layer.options) {
+            imovelId = layer.options.imovelId || layer.options.id;
+            
+            if (imovelId && window.dadosCompletos) {
+                imovelData = window.dadosCompletos.find(item => item.id == imovelId);
+                if (imovelData) {
+                    bairroDoImovel = imovelData.properties?.bairro;
+                    layer.imovelData = imovelData;
+                }
+            }
+        }
+        
+        // Se ainda não encontrou, tentar buscar por posição/coordenadas (último recurso)
+        if (!imovelData && layer.getBounds && window.dadosCompletos) {
+            try {
+                const bounds = layer.getBounds();
+                const center = bounds.getCenter();
+                
+                // Buscar dados completos que estejam próximos
+                imovelData = window.dadosCompletos.find(item => {
+                    if (item.centroid) {
+                        const distance = Math.abs(item.centroid[0] - center.lat) + 
+                                       Math.abs(item.centroid[1] - center.lng);
+                        return distance < 0.001; // Tolerância pequena
+                    }
+                    return false;
+                });
+                
+                if (imovelData) {
+                    bairroDoImovel = imovelData.properties?.bairro;
+                    layer.imovelData = imovelData;
+                }
+            } catch (error) {
+                // Silenciosamente ignorar erros de coordenadas
             }
         }
         
         if (!imovelData || !bairroDoImovel) {
-            // Se não conseguiu encontrar dados, manter visível por padrão
-            console.warn('⚠️ Layer sem dados de bairro encontrado');
+            layersSemDados++;
+            // Se não há filtro de bairro, manter visível
+            if (!bairroSelecionado) {
+                layersParaZoom.push(layer);
+                polígnosVisíveis++;
+            } else {
+                polígnosOcultos++;
+            }
             return;
         }
         
@@ -429,7 +544,6 @@ function filterMapPolygons() {
             // Se há bairro selecionado, mostrar apenas esse bairro
             mostrar = bairroDoImovel === bairroSelecionado;
         }
-        // Se não há bairro selecionado (todos), mostrar tudo
         
         // Aplicar filtros adicionais (valores min/max)
         if (mostrar && window.filtrosAtivos) {
@@ -444,17 +558,13 @@ function filterMapPolygons() {
             }
         }
         
-        // Mostrar ou ocultar o polígono
+        // Controlar visibilidade do layer
         if (mostrar) {
-            if (!window.mapInstance.hasLayer(layer)) {
-                window.layerGroup.addLayer(layer);
-            }
+            layer.setStyle({ opacity: 1, fillOpacity: 0.7 }); // Tornar visível
             layersParaZoom.push(layer);
             polígnosVisíveis++;
         } else {
-            if (window.mapInstance.hasLayer(layer)) {
-                window.layerGroup.removeLayer(layer);
-            }
+            layer.setStyle({ opacity: 0, fillOpacity: 0 }); // Tornar invisível
             polígnosOcultos++;
         }
     });
@@ -462,12 +572,15 @@ function filterMapPolygons() {
     console.log(`✅ Filtro aplicado no mapa:`);
     console.log(`   📍 Polígonos visíveis: ${polígnosVisíveis}`);
     console.log(`   👁️ Polígonos ocultos: ${polígnosOcultos}`);
+    console.log(`   ⚠️ Layers sem dados: ${layersSemDados}`);
     
     // Ajustar zoom se houver polígonos visíveis
     if (layersParaZoom.length > 0) {
         setTimeout(() => {
             ajustarZoomParaLayers(layersParaZoom, bairroSelecionado);
-        }, 100);
+        }, 200);
+    } else {
+        console.warn('⚠️ Nenhum layer válido para zoom encontrado');
     }
 }
 
@@ -793,6 +906,7 @@ window.testFilters = testFilters;
 window.populateBairroSelectWithFallback = populateBairroSelectWithFallback;
 window.filterMapPolygons = filterMapPolygons;
 window.ajustarZoomParaLayers = ajustarZoomParaLayers;
+window.diagnosticMapLayers = diagnosticMapLayers;
 
 console.log('✅ FILTROS FINAIS CORRIGIDOS - Bairros funcionando + Cards dinâmicos!');
 console.log('🔍 Execute diagnosticFilters() para diagnóstico');
