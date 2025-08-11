@@ -280,56 +280,106 @@ function applyFilters() {
 }
 
 // ================================
-// ATUALIZAR CARDS COM FILTROS - FUNÇÃO CORRIGIDA
+// ATUALIZAR CARDS COM FILTROS - FUNÇÃO CORRIGIDA V2
 // ================================
 function updateSummaryCardsWithFilters() {
     console.log('📊 Atualizando cards com filtros aplicados...');
     
-    // Verificar se temos dados e função de filtro
+    // Verificar se temos dados
     if (!window.dadosCompletos || !window.dadosCompletos.length) {
         console.warn('⚠️ dadosCompletos não disponível');
         return;
     }
 
-    // Obter dados filtrados usando a função do dashboard
-    let dadosFiltrados = [];
-    
-    if (window.filtrarDados && typeof window.filtrarDados === 'function') {
-        dadosFiltrados = window.filtrarDados();
-    } else {
-        // Fallback: filtrar manualmente
-        console.warn('⚠️ Função filtrarDados não disponível, filtrando manualmente');
-        dadosFiltrados = window.dadosCompletos.filter(item => {
-            if (!item || !item.properties) return false;
+    console.log(`📊 Total de dados disponíveis: ${window.dadosCompletos.length}`);
+    console.log(`📊 Filtros ativos:`, window.filtrosAtivos);
+
+    // FORÇAR FILTRO MANUAL - não depender de window.filtrarDados()
+    const dadosFiltrados = window.dadosCompletos.filter(item => {
+        if (!item || !item.properties) {
+            return false;
+        }
+        
+        const props = item.properties;
+        
+        // Debug: log do primeiro item para verificar estrutura
+        if (window.dadosCompletos.indexOf(item) === 0) {
+            console.log('📋 Estrutura do primeiro item:', {
+                id: item.id,
+                bairro: props.bairro,
+                capacidade: props.capacidade_por_m2
+            });
+        }
+        
+        // Filtro por bairro
+        if (window.filtrosAtivos?.bairros?.length > 0) {
+            const bairroFiltro = window.filtrosAtivos.bairros[0];
+            const bairroItem = props.bairro;
             
-            const props = item.properties;
+            console.log(`🔍 Comparando: "${bairroItem}" === "${bairroFiltro}"`);
             
-            // Filtro por bairro
-            if (window.filtrosAtivos?.bairros?.length > 0) {
-                if (!window.filtrosAtivos.bairros.includes(props.bairro)) {
-                    return false;
-                }
-            }
-            
-            // Filtro por valores
-            const valor = props[window.filtrosAtivos?.info || 'capacidade_por_m2'] || 0;
-            if (window.filtrosAtivos?.minValue !== null && valor < window.filtrosAtivos.minValue) {
+            if (bairroItem !== bairroFiltro) {
                 return false;
             }
-            if (window.filtrosAtivos?.maxValue !== null && valor > window.filtrosAtivos.maxValue) {
+        }
+        
+        // Filtro por valores (opcional)
+        if (window.filtrosAtivos?.info) {
+            const valor = props[window.filtrosAtivos.info] || 0;
+            
+            if (window.filtrosAtivos.minValue !== null && valor < window.filtrosAtivos.minValue) {
                 return false;
             }
             
-            return true;
-        });
-    }
+            if (window.filtrosAtivos.maxValue !== null && valor > window.filtrosAtivos.maxValue) {
+                return false;
+            }
+        }
+        
+        return true;
+    });
     
     console.log(`📊 Dados filtrados: ${dadosFiltrados.length} de ${window.dadosCompletos.length}`);
     
-    // Calcular estatísticas dos dados filtrados
-    const totalImoveis = dadosFiltrados.length;
+    // Se ainda está retornando todos os dados, há problema no filtro
+    if (window.filtrosAtivos?.bairros?.length > 0 && dadosFiltrados.length === window.dadosCompletos.length) {
+        console.error('❌ PROBLEMA: Filtro não está funcionando!');
+        
+        // Debug detalhado
+        const bairroFiltro = window.filtrosAtivos.bairros[0];
+        console.log(`🔍 Bairro do filtro: "${bairroFiltro}"`);
+        
+        // Verificar quantos itens têm esse bairro
+        const itensDoBairro = window.dadosCompletos.filter(item => 
+            item.properties?.bairro === bairroFiltro
+        );
+        console.log(`🔍 Itens encontrados com bairro "${bairroFiltro}": ${itensDoBairro.length}`);
+        
+        // Verificar bairros únicos disponíveis
+        const bairrosUnicos = [...new Set(
+            window.dadosCompletos.map(item => item.properties?.bairro).filter(b => b)
+        )];
+        console.log(`🔍 Bairros únicos disponíveis:`, bairrosUnicos);
+        
+        // Usar os dados corretos do bairro
+        if (itensDoBairro.length > 0) {
+            console.log(`✅ Usando ${itensDoBairro.length} itens do bairro para cálculo`);
+            updateCardsDisplay(itensDoBairro, bairroFiltro);
+            return;
+        }
+    }
     
-    const producaoTotal = dadosFiltrados.reduce((sum, item) => {
+    // Calcular e atualizar normalmente
+    updateCardsDisplay(dadosFiltrados, window.filtrosAtivos?.bairros?.[0] || 'Todos');
+}
+
+// ================================
+// ATUALIZAR DISPLAY DOS CARDS
+// ================================
+function updateCardsDisplay(dados, bairroNome) {
+    const totalImoveis = dados.length;
+    
+    const producaoTotal = dados.reduce((sum, item) => {
         return sum + (item.properties?.capacidade_por_m2 || 0);
     }, 0);
     
@@ -353,29 +403,10 @@ function updateSummaryCardsWithFilters() {
     }
 
     // Log para debug
-    const bairroSelecionado = window.filtrosAtivos?.bairros?.[0] || 'Todos';
-    console.log(`📊 Cards atualizados para: ${bairroSelecionado}`);
+    console.log(`📊 Cards atualizados para: ${bairroNome}`);
     console.log(`   📍 Total de Imóveis: ${totalImoveis.toLocaleString('pt-BR')}`);
     console.log(`   ⚡ Produção Total: ${producaoTotal.toFixed(2)} kW`);
     console.log(`   📈 Média por Imóvel: ${mediaPorImovel.toFixed(2)} kW`);
-    
-    // NOVA VERIFICAÇÃO: Se os valores ainda estão iguais aos totais, há problema
-    if (window.filtrosAtivos?.bairros?.length > 0 && totalImoveis === window.dadosCompletos.length) {
-        console.error('❌ PROBLEMA: Cards não foram filtrados corretamente!');
-        console.log('   Filtros ativos:', window.filtrosAtivos);
-        console.log('   Verificando alguns itens filtrados:');
-        
-        // Debug: mostrar amostra dos dados filtrados
-        const amostra = dadosFiltrados.slice(0, 3).map(item => ({
-            id: item.id,
-            bairro: item.properties?.bairro,
-            capacidade: item.properties?.capacidade_por_m2
-        }));
-        console.log('   Amostra filtrada:', amostra);
-        
-        // Debug: verificar se filtrosAtivos está correto
-        console.log('   window.filtrosAtivos:', window.filtrosAtivos);
-    }
 }
 
 // ================================
