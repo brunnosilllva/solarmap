@@ -67,7 +67,7 @@ function initMap() {
 }
 
 // ================================
-// CRIAR LEGENDA ESTILO QGIS COM CLASSIFICAÇÃO POR QUANTIS
+// CRIAR LEGENDA EM GRADIENTE MELHORADA
 // ================================
 function createMapLegend(currentField, minValue, maxValue) {
     // Remover legenda anterior se existir
@@ -78,38 +78,10 @@ function createMapLegend(currentField, minValue, maxValue) {
     // Títulos dos campos conforme especificação
     const fieldTitles = {
         'capacidade_por_m2': 'Capacidade por m² (kW)',
-        'producao_telhado': 'Produção do Telhado (kW)',
-        'area_edificacao': 'Área da Edificação (m²)',
-        'radiacao_max': 'Radiação Máxima (kW/m²)',
-        'quantidade_placas': 'Quantidade de Placas',
-        'renda_total': 'Renda Total (R$)'
+        'producao_telhado': 'Produção do Telhado (kW)'
     };
     
     const title = fieldTitles[currentField] || currentField;
-    
-    // NOVO: Calcular quantis dos dados reais
-    const dadosFiltrados = window.filtrarDados ? window.filtrarDados() : window.dadosCompletos;
-    const valoresReais = dadosFiltrados
-        .map(item => item.properties?.[currentField] || 0)
-        .filter(val => val > 0)
-        .sort((a, b) => a - b);
-    
-    // Calcular 6 classes (quantis)
-    const numClasses = 6;
-    const quantis = [];
-    
-    if (valoresReais.length > 0) {
-        for (let i = 0; i <= numClasses; i++) {
-            const percentil = i / numClasses;
-            const index = Math.floor(percentil * (valoresReais.length - 1));
-            quantis.push(valoresReais[index]);
-        }
-    } else {
-        // Fallback se não há dados
-        for (let i = 0; i <= numClasses; i++) {
-            quantis.push(minValue + (maxValue - minValue) * i / numClasses);
-        }
-    }
     
     // Criar controle de legenda
     legendControl = L.control({ position: 'topright' });
@@ -124,81 +96,55 @@ function createMapLegend(currentField, minValue, maxValue) {
             font-family: Arial, sans-serif;
             font-size: 12px;
             line-height: 1.4;
-            min-width: 220px;
-            max-width: 280px;
+            min-width: 200px;
         `;
         
         // Título da legenda
-        div.innerHTML = `<h4 style="margin: 0 0 12px 0; color: #1e3a5f; font-size: 14px; font-weight: bold;">${title}</h4>`;
+        div.innerHTML = `<h4 style="margin: 0 0 10px 0; color: #1e3a5f; font-size: 14px; font-weight: bold;">${title}</h4>`;
         
-        // Criar classes estilo QGIS
-        let classesHtml = '<div style="margin-bottom: 10px;">';
+        // Criar gradiente CSS com 7 cores
+        const gradientStops = GRADIENT_COLORS.map((color, index) => {
+            const percentage = (index / (GRADIENT_COLORS.length - 1)) * 100;
+            return `${color} ${percentage}%`;
+        }).join(', ');
         
-        for (let i = 0; i < numClasses; i++) {
-            const cor = GRADIENT_COLORS[Math.floor(i * (GRADIENT_COLORS.length - 1) / (numClasses - 1))];
-            const valorMin = quantis[i];
-            const valorMax = quantis[i + 1];
-            
-            // Formatação dos valores
-            const formatMin = window.formatNumber ? window.formatNumber(valorMin, 1) : valorMin.toFixed(1);
-            const formatMax = window.formatNumber ? window.formatNumber(valorMax, 1) : valorMax.toFixed(1);
-            
-            // Calcular quantos imóveis estão nesta classe
-            const imoveisNaClasse = dadosFiltrados.filter(item => {
-                const valor = item.properties?.[currentField] || 0;
-                return valor >= valorMin && valor <= valorMax;
-            }).length;
-            
-            classesHtml += `
-                <div style="
-                    display: flex;
-                    align-items: center;
-                    margin-bottom: 6px;
-                    font-size: 11px;
-                ">
-                    <div style="
-                        width: 20px;
-                        height: 15px;
-                        background-color: ${cor};
-                        border: 1px solid #999;
-                        margin-right: 8px;
-                        flex-shrink: 0;
-                    "></div>
-                    <div style="flex-grow: 1;">
-                        <div style="font-weight: bold; color: #333;">
-                            ${formatMin} - ${formatMax}
-                        </div>
-                        <div style="color: #666; font-size: 10px;">
-                            ${imoveisNaClasse.toLocaleString('pt-BR')} imóveis
-                        </div>
-                    </div>
-                </div>
-            `;
-        }
-        
-        classesHtml += '</div>';
-        div.innerHTML += classesHtml;
-        
-        // Informações extras estilo QGIS
+        // Container do gradiente
         div.innerHTML += `
             <div style="
-                margin-top: 12px;
-                padding-top: 10px;
+                height: 20px;
+                background: linear-gradient(to right, ${gradientStops});
+                border: 1px solid #ccc;
+                border-radius: 4px;
+                margin-bottom: 8px;
+            "></div>
+        `;
+        
+        // Labels de valores com mais divisões
+        const step = (maxValue - minValue) / (GRADIENT_COLORS.length - 1);
+        let labelsHtml = '<div style="display: flex; justify-content: space-between; font-size: 10px; color: #666; margin-bottom: 8px;">';
+        
+        for (let i = 0; i < GRADIENT_COLORS.length; i++) {
+            const value = minValue + (step * i);
+            const formattedValue = window.formatNumber ? window.formatNumber(value, 1) : value.toFixed(1);
+            labelsHtml += `<span style="text-align: center; flex: 1;">${formattedValue}</span>`;
+        }
+        
+        labelsHtml += '</div>';
+        div.innerHTML += labelsHtml;
+        
+        // Adicionar contagem de polígonos
+        const dadosFiltrados = window.filtrarDados ? window.filtrarDados() : [];
+        div.innerHTML += `
+            <div style="
+                margin-top: 10px;
+                padding-top: 8px;
                 border-top: 1px solid #eee;
-                font-size: 10px;
-                color: #666;
+                font-size: 11px;
+                color: #888;
+                text-align: center;
             ">
-                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
-                    <span><strong>Modo:</strong> Quantis</span>
-                    <span><strong>Classes:</strong> ${numClasses}</span>
-                </div>
-                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
-                    <span><strong>Total:</strong> ${dadosFiltrados.length.toLocaleString('pt-BR')}</span>
-                    <span><strong>Válidos:</strong> ${valoresReais.length.toLocaleString('pt-BR')}</span>
-                </div>
-                <div style="text-align: center; color: #888; font-size: 9px; margin-top: 6px;">
-                    🎨 Classificação automática por distribuição
-                </div>
+                ${formatNumberWithDots(dadosFiltrados.length, 0)} imóveis exibidos<br>
+                <span style="color: #666; font-size: 10px;">🎨 ${GRADIENT_COLORS.length} cores</span>
             </div>
         `;
         
@@ -206,47 +152,7 @@ function createMapLegend(currentField, minValue, maxValue) {
     };
     
     legendControl.addTo(mapInstance);
-    console.log(`🎨 Legenda QGIS criada para ${title} - ${numClasses} classes por quantis`);
-    console.log(`📊 Valores dos quantis:`, quantis.map(v => v.toFixed(2)));
-}
-
-// ================================
-// FUNÇÃO MELHORADA PARA OBTER COR BASEADA EM QUANTIS
-// ================================
-function getGradientColorByQuantiles(valor, currentField) {
-    // Obter dados atuais
-    const dadosFiltrados = window.filtrarDados ? window.filtrarDados() : window.dadosCompletos;
-    const valoresReais = dadosFiltrados
-        .map(item => item.properties?.[currentField] || 0)
-        .filter(val => val > 0)
-        .sort((a, b) => a - b);
-    
-    if (valoresReais.length === 0) {
-        return GRADIENT_COLORS[0];
-    }
-    
-    // Calcular quantis
-    const numClasses = 6;
-    const quantis = [];
-    
-    for (let i = 0; i <= numClasses; i++) {
-        const percentil = i / numClasses;
-        const index = Math.floor(percentil * (valoresReais.length - 1));
-        quantis.push(valoresReais[index]);
-    }
-    
-    // Encontrar em qual classe o valor se encaixa
-    let classeIndex = 0;
-    for (let i = 0; i < numClasses; i++) {
-        if (valor >= quantis[i] && valor <= quantis[i + 1]) {
-            classeIndex = i;
-            break;
-        }
-    }
-    
-    // Mapear classe para cor
-    const corIndex = Math.floor(classeIndex * (GRADIENT_COLORS.length - 1) / (numClasses - 1));
-    return GRADIENT_COLORS[corIndex];
+    console.log(`🎨 Legenda gradiente criada para ${title} com ${GRADIENT_COLORS.length} cores`);
 }
 
 // ================================
@@ -438,9 +344,9 @@ function addPolygonsToMap() {
     // Processar cada item válido
     dadosValidosParaMapa.forEach((item, index) => {
         try {
-            // Calcular cor usando quantis
+            // Calcular cor com gradiente de 7 cores
             const fieldValue = item.properties?.[currentField] || 0;
-            const color = getGradientColorByQuantiles(fieldValue, currentField);
+            const color = getGradientColor(fieldValue, minValue, maxValue);
 
             // Criar polígono com gradiente melhorado
             const polygon = L.polygon(item.coordinates, {
