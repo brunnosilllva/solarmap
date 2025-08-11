@@ -1,6 +1,6 @@
 // ================================
 // MAPA INTERATIVO - SOLARMAP
-// VERSÃO MELHORADA COM PALETA DE CORES RICA
+// VERSÃO CORRIGIDA BASEADA NO ORIGINAL + CORES MELHORADAS
 // ================================
 
 // Variáveis globais do mapa
@@ -10,12 +10,8 @@ let selectedPolygon = null;
 let legendControl = null;
 let allPolygons = [];
 
-// ================================
-// PALETAS DE CORES MELHORADAS
-// ================================
-
-// PALETA PRINCIPAL: Azul → Cinza → Laranja → Vermelho (7 cores)
-const GRADIENT_COLORS_RICH = [
+// CORES GRADIENTE MELHORADAS: Azul → Cinza → Laranja → Vermelho (7 cores)
+const GRADIENT_COLORS = [
     '#2166ac',  // Azul escuro (valores muito baixos)
     '#4393c3',  // Azul médio 
     '#92c5de',  // Azul claro
@@ -24,34 +20,6 @@ const GRADIENT_COLORS_RICH = [
     '#ff7f00',  // Laranja
     '#d73027'   // Vermelho (valores altos)
 ];
-
-// PALETA ALTERNATIVA: Verde → Amarelo → Vermelho (capacidade solar)
-const GRADIENT_COLORS_SOLAR = [
-    '#1a9850',  // Verde escuro (baixa capacidade)
-    '#66bd63',  // Verde médio
-    '#a6d96a',  // Verde claro
-    '#d9ef8b',  // Verde amarelado
-    '#fee08b',  // Amarelo claro
-    '#fdae61',  // Laranja claro
-    '#f46d43',  // Laranja
-    '#d73027'   // Vermelho (alta capacidade)
-];
-
-// PALETA VIBRANTE: Para alta visibilidade
-const GRADIENT_COLORS_VIBRANT = [
-    '#313695',  // Azul muito escuro
-    '#4575b4',  // Azul escuro
-    '#74add1',  // Azul médio
-    '#abd9e9',  // Azul claro
-    '#fee090',  // Amarelo claro
-    '#fdae61',  // Laranja claro
-    '#f46d43',  // Laranja
-    '#d73027',  // Vermelho
-    '#a50026'   // Vermelho escuro
-];
-
-// Paleta ativa (pode ser alterada dinamicamente)
-let ACTIVE_GRADIENT = GRADIENT_COLORS_RICH;
 
 // ================================
 // FUNÇÃO DE FORMATAÇÃO
@@ -65,34 +33,6 @@ function formatNumberWithDots(numero, decimais = 2) {
         minimumFractionDigits: decimais,
         maximumFractionDigits: decimais
     }).format(numero);
-}
-
-// ================================
-// SELETOR DE PALETA DE CORES
-// ================================
-function changePalette(paletteType = 'rich') {
-    console.log(`🎨 Alterando paleta para: ${paletteType}`);
-    
-    switch(paletteType) {
-        case 'rich':
-            ACTIVE_GRADIENT = GRADIENT_COLORS_RICH;
-            break;
-        case 'solar':
-            ACTIVE_GRADIENT = GRADIENT_COLORS_SOLAR;
-            break;
-        case 'vibrant':
-            ACTIVE_GRADIENT = GRADIENT_COLORS_VIBRANT;
-            break;
-        default:
-            ACTIVE_GRADIENT = GRADIENT_COLORS_RICH;
-    }
-    
-    // Reaplicar cores nos polígonos existentes
-    if (layerGroup && layerGroup.getLayers().length > 0) {
-        addPolygonsToMap();
-    }
-    
-    console.log(`✅ Paleta alterada para ${paletteType} (${ACTIVE_GRADIENT.length} cores)`);
 }
 
 // ================================
@@ -120,9 +60,6 @@ function initMap() {
         window.mapInstance = mapInstance;
         window.layerGroup = layerGroup;
         
-        // Adicionar controle de paletas
-        addPaletteControl();
-        
     } catch (error) {
         console.error('❌ Erro ao inicializar mapa:', error);
         throw error;
@@ -130,99 +67,7 @@ function initMap() {
 }
 
 // ================================
-// CONTROLE DE PALETAS NO MAPA
-// ================================
-function addPaletteControl() {
-    const paletteControl = L.control({ position: 'topleft' });
-    
-    paletteControl.onAdd = function(map) {
-        const div = L.DomUtil.create('div', 'palette-control');
-        div.style.cssText = `
-            background: white;
-            padding: 10px;
-            border-radius: 6px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-            font-family: Arial, sans-serif;
-            font-size: 12px;
-        `;
-        
-        div.innerHTML = `
-            <div style="margin-bottom: 8px; font-weight: bold; color: #333;">🎨 Paleta de Cores:</div>
-            <button onclick="changePalette('rich')" style="margin: 2px; padding: 4px 8px; font-size: 11px; border: 1px solid #ccc; background: white; cursor: pointer; border-radius: 3px;">Rica</button>
-            <button onclick="changePalette('solar')" style="margin: 2px; padding: 4px 8px; font-size: 11px; border: 1px solid #ccc; background: white; cursor: pointer; border-radius: 3px;">Solar</button>
-            <button onclick="changePalette('vibrant')" style="margin: 2px; padding: 4px 8px; font-size: 11px; border: 1px solid #ccc; background: white; cursor: pointer; border-radius: 3px;">Vibrante</button>
-        `;
-        
-        // Prevenir propagação de eventos do mapa
-        L.DomEvent.disableClickPropagation(div);
-        
-        return div;
-    };
-    
-    paletteControl.addTo(mapInstance);
-}
-
-// ================================
-// FUNÇÃO AUXILIAR PARA CONVERTER HEX PARA RGB
-// ================================
-function hexToRgb(hex) {
-    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-    return result ? {
-        r: parseInt(result[1], 16),
-        g: parseInt(result[2], 16),
-        b: parseInt(result[3], 16)
-    } : null;
-}
-
-// ================================
-// INTERPOLAÇÃO DE CORES MELHORADA
-// ================================
-function interpolateColors(color1, color2, factor) {
-    const rgb1 = hexToRgb(color1);
-    const rgb2 = hexToRgb(color2);
-    
-    if (!rgb1 || !rgb2) {
-        return color1;
-    }
-    
-    const r = Math.round(rgb1.r + (rgb2.r - rgb1.r) * factor);
-    const g = Math.round(rgb1.g + (rgb2.g - rgb1.g) * factor);
-    const b = Math.round(rgb1.b + (rgb2.b - rgb1.b) * factor);
-    
-    return `rgb(${r}, ${g}, ${b})`;
-}
-
-// ================================
-// FUNÇÃO MELHORADA PARA OBTER COR DO GRADIENTE
-// ================================
-function getGradientColor(valor, minValue, maxValue) {
-    if (maxValue === minValue) {
-        return ACTIVE_GRADIENT[Math.floor(ACTIVE_GRADIENT.length / 2)];
-    }
-    
-    // Normalizar valor entre 0 e 1
-    const normalized = Math.max(0, Math.min(1, (valor - minValue) / (maxValue - minValue)));
-    
-    // Calcular índice na paleta
-    const index = normalized * (ACTIVE_GRADIENT.length - 1);
-    const lowerIndex = Math.floor(index);
-    const upperIndex = Math.ceil(index);
-    
-    // Se índices são iguais, retornar cor direta
-    if (lowerIndex === upperIndex) {
-        return ACTIVE_GRADIENT[lowerIndex];
-    }
-    
-    // Interpolação suave entre duas cores
-    const factor = index - lowerIndex;
-    const lowerColor = ACTIVE_GRADIENT[lowerIndex];
-    const upperColor = ACTIVE_GRADIENT[upperIndex];
-    
-    return interpolateColors(lowerColor, upperColor, factor);
-}
-
-// ================================
-// CRIAR LEGENDA MELHORADA COM MAIS DIVISÕES
+// CRIAR LEGENDA EM GRADIENTE MELHORADA
 // ================================
 function createMapLegend(currentField, minValue, maxValue) {
     // Remover legenda anterior se existir
@@ -233,14 +78,10 @@ function createMapLegend(currentField, minValue, maxValue) {
     // Títulos dos campos conforme especificação
     const fieldTitles = {
         'capacidade_por_m2': 'Capacidade por m² (kW)',
-        'producao_telhado': 'Produção do Telhado (kW)',
-        'area_edificacao': 'Área da Edificação (m²)',
-        'radiacao_max': 'Radiação Máxima (kW/m²)',
-        'quantidade_placas': 'Quantidade de Placas',
-        'renda_total': 'Renda Total (R$)'
+        'producao_telhado': 'Produção do Telhado (kW)'
     };
     
-    const title = fieldTitles[currentField] || currentField.replace('_', ' ');
+    const title = fieldTitles[currentField] || currentField;
     
     // Criar controle de legenda
     legendControl = L.control({ position: 'topright' });
@@ -256,68 +97,54 @@ function createMapLegend(currentField, minValue, maxValue) {
             font-size: 12px;
             line-height: 1.4;
             min-width: 200px;
-            max-width: 250px;
         `;
         
         // Título da legenda
-        div.innerHTML = `<h4 style="margin: 0 0 12px 0; color: #1e3a5f; font-size: 14px; font-weight: bold;">${title}</h4>`;
+        div.innerHTML = `<h4 style="margin: 0 0 10px 0; color: #1e3a5f; font-size: 14px; font-weight: bold;">${title}</h4>`;
         
-        // Criar gradiente CSS
-        const gradientStops = ACTIVE_GRADIENT.map((color, index) => {
-            const percentage = (index / (ACTIVE_GRADIENT.length - 1)) * 100;
+        // Criar gradiente CSS com 7 cores
+        const gradientStops = GRADIENT_COLORS.map((color, index) => {
+            const percentage = (index / (GRADIENT_COLORS.length - 1)) * 100;
             return `${color} ${percentage}%`;
         }).join(', ');
         
         // Container do gradiente
         div.innerHTML += `
             <div style="
-                height: 25px;
+                height: 20px;
                 background: linear-gradient(to right, ${gradientStops});
                 border: 1px solid #ccc;
                 border-radius: 4px;
-                margin-bottom: 10px;
+                margin-bottom: 8px;
             "></div>
         `;
         
         // Labels de valores com mais divisões
-        const range = maxValue - minValue;
-        const step = range / (ACTIVE_GRADIENT.length - 1);
-        
+        const step = (maxValue - minValue) / (GRADIENT_COLORS.length - 1);
         let labelsHtml = '<div style="display: flex; justify-content: space-between; font-size: 10px; color: #666; margin-bottom: 8px;">';
         
-        for (let i = 0; i < ACTIVE_GRADIENT.length; i++) {
+        for (let i = 0; i < GRADIENT_COLORS.length; i++) {
             const value = minValue + (step * i);
-            const formattedValue = window.formatNumber ? 
-                window.formatNumber(value, 1) : 
-                value.toFixed(1);
-            
+            const formattedValue = window.formatNumber ? window.formatNumber(value, 1) : value.toFixed(1);
             labelsHtml += `<span style="text-align: center; flex: 1;">${formattedValue}</span>`;
         }
         
         labelsHtml += '</div>';
         div.innerHTML += labelsHtml;
         
-        // Informações adicionais
+        // Adicionar contagem de polígonos
         const dadosFiltrados = window.filtrarDados ? window.filtrarDados() : [];
-        const totalVisible = dadosFiltrados.length;
-        
         div.innerHTML += `
             <div style="
-                margin-top: 12px;
-                padding-top: 10px;
+                margin-top: 10px;
+                padding-top: 8px;
                 border-top: 1px solid #eee;
                 font-size: 11px;
-                color: #666;
+                color: #888;
+                text-align: center;
             ">
-                <div style="margin-bottom: 4px;">
-                    <strong>📊 Dados:</strong> ${formatNumberWithDots(totalVisible, 0)} imóveis
-                </div>
-                <div style="margin-bottom: 4px;">
-                    <strong>📈 Variação:</strong> ${window.formatNumber ? window.formatNumber(range, 2) : range.toFixed(2)}
-                </div>
-                <div style="color: #888; font-size: 10px;">
-                    🎨 Paleta: ${ACTIVE_GRADIENT.length} cores
-                </div>
+                ${formatNumberWithDots(dadosFiltrados.length, 0)} imóveis exibidos<br>
+                <span style="color: #666; font-size: 10px;">🎨 ${GRADIENT_COLORS.length} cores</span>
             </div>
         `;
         
@@ -325,36 +152,52 @@ function createMapLegend(currentField, minValue, maxValue) {
     };
     
     legendControl.addTo(mapInstance);
-    console.log(`🎨 Legenda criada para ${title} com ${ACTIVE_GRADIENT.length} cores`);
+    console.log(`🎨 Legenda gradiente criada para ${title} com ${GRADIENT_COLORS.length} cores`);
 }
 
 // ================================
-// CALCULAR BOUNDS DE UM CONJUNTO DE DADOS
+// FUNÇÃO PARA OBTER COR DO GRADIENTE MELHORADA (7 CORES)
 // ================================
-function calculateBounds(dados) {
-    if (!dados || dados.length === 0) return null;
+function getGradientColor(valor, minValue, maxValue) {
+    if (maxValue === minValue) {
+        return GRADIENT_COLORS[0];
+    }
     
-    let minLat = Infinity, maxLat = -Infinity;
-    let minLng = Infinity, maxLng = -Infinity;
+    const normalized = (valor - minValue) / (maxValue - minValue);
+    const index = normalized * (GRADIENT_COLORS.length - 1);
+    const lowerIndex = Math.floor(index);
+    const upperIndex = Math.ceil(index);
     
-    dados.forEach(item => {
-        if (item.centroid && item.centroid.length >= 2) {
-            const lat = item.centroid[0];
-            const lng = item.centroid[1];
-            
-            minLat = Math.min(minLat, lat);
-            maxLat = Math.max(maxLat, lat);
-            minLng = Math.min(minLng, lng);
-            maxLng = Math.max(maxLng, lng);
-        }
-    });
+    if (lowerIndex === upperIndex) {
+        return GRADIENT_COLORS[lowerIndex];
+    }
     
-    if (minLat === Infinity) return null;
+    // Interpolação entre duas cores
+    const factor = index - lowerIndex;
+    const lowerColor = GRADIENT_COLORS[lowerIndex];
+    const upperColor = GRADIENT_COLORS[upperIndex];
     
-    return [
-        [minLat, minLng],
-        [maxLat, maxLng]
-    ];
+    // Converter hex para RGB, interpolar e converter de volta
+    const lowerRgb = hexToRgb(lowerColor);
+    const upperRgb = hexToRgb(upperColor);
+    
+    const r = Math.round(lowerRgb.r + (upperRgb.r - lowerRgb.r) * factor);
+    const g = Math.round(lowerRgb.g + (upperRgb.g - lowerRgb.g) * factor);
+    const b = Math.round(lowerRgb.b + (upperRgb.b - lowerRgb.b) * factor);
+    
+    return `rgb(${r}, ${g}, ${b})`;
+}
+
+// ================================
+// FUNÇÃO AUXILIAR PARA CONVERTER HEX PARA RGB
+// ================================
+function hexToRgb(hex) {
+    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return result ? {
+        r: parseInt(result[1], 16),
+        g: parseInt(result[2], 16),
+        b: parseInt(result[3], 16)
+    } : null;
 }
 
 // ================================
@@ -396,10 +239,39 @@ function autoZoomToBairro(bairroSelecionado) {
 }
 
 // ================================
-// ADICIONAR POLÍGONOS AO MAPA - VERSÃO MELHORADA
+// CALCULAR BOUNDS DE UM CONJUNTO DE DADOS
+// ================================
+function calculateBounds(dados) {
+    if (!dados || dados.length === 0) return null;
+    
+    let minLat = Infinity, maxLat = -Infinity;
+    let minLng = Infinity, maxLng = -Infinity;
+    
+    dados.forEach(item => {
+        if (item.centroid && item.centroid.length >= 2) {
+            const lat = item.centroid[0];
+            const lng = item.centroid[1];
+            
+            minLat = Math.min(minLat, lat);
+            maxLat = Math.max(maxLat, lat);
+            minLng = Math.min(minLng, lng);
+            maxLng = Math.max(maxLng, lng);
+        }
+    });
+    
+    if (minLat === Infinity) return null;
+    
+    return [
+        [minLat, minLng],
+        [maxLat, maxLng]
+    ];
+}
+
+// ================================
+// ADICIONAR POLÍGONOS AO MAPA - VERSÃO CORRIGIDA
 // ================================
 function addPolygonsToMap() {
-    console.log('📍 === ADICIONANDO POLÍGONOS (VERSÃO MELHORADA) ===');
+    console.log('📍 === ADICIONANDO POLÍGONOS (VERSÃO CORRIGIDA) ===');
     
     if (!window.dadosCompletos || window.dadosCompletos.length === 0) {
         console.error('❌ dadosCompletos não disponível');
@@ -422,7 +294,6 @@ function addPolygonsToMap() {
     
     console.log(`📊 Total de dados: ${window.dadosCompletos.length}`);
     console.log(`📊 Dados após filtros: ${dadosFiltrados.length}`);
-    console.log(`🎨 Paleta ativa: ${ACTIVE_GRADIENT.length} cores`);
     
     if (dadosFiltrados.length === 0) {
         console.warn('⚠️ Nenhum dado após aplicar filtros');
@@ -461,12 +332,6 @@ function addPolygonsToMap() {
     } else {
         minValue = Math.min(...values);
         maxValue = Math.max(...values);
-        
-        // Adicionar pequena margem para melhor distribuição
-        const range = maxValue - minValue;
-        const margin = range * 0.05; // 5% de margem
-        minValue = Math.max(0, minValue - margin);
-        maxValue = maxValue + margin;
     }
 
     console.log(`🎨 Coloração por: ${currentField}`);
@@ -479,28 +344,28 @@ function addPolygonsToMap() {
     // Processar cada item válido
     dadosValidosParaMapa.forEach((item, index) => {
         try {
-            // Calcular cor com nova paleta
+            // Calcular cor com gradiente de 7 cores
             const fieldValue = item.properties?.[currentField] || 0;
             const color = getGradientColor(fieldValue, minValue, maxValue);
 
-            // Criar polígono com estilo melhorado
+            // Criar polígono com gradiente melhorado
             const polygon = L.polygon(item.coordinates, {
-                color: '#ffffff',
-                weight: 0.5,
-                opacity: 0.8,
+                color: color,
+                weight: 0,
+                opacity: 0,
                 fillColor: color,
-                fillOpacity: 0.8
+                fillOpacity: 0.7
             });
 
             // Dados do polígono
             polygon.itemId = item.id;
             polygon.itemData = item;
 
-            // POPUP MELHORADO
+            // POPUP CONFORME ESPECIFICAÇÃO
             const popupContent = createPopupContentFixed(item);
             polygon.bindPopup(popupContent);
 
-            // Eventos do polígono com transições suaves
+            // Eventos do polígono
             polygon.on('click', function(e) {
                 selectPolygon(item.id, polygon);
             });
@@ -509,18 +374,18 @@ function addPolygonsToMap() {
                 this.setStyle({
                     weight: 2,
                     opacity: 1,
-                    fillOpacity: 0.95,
-                    color: '#000000'
+                    fillOpacity: 0.9,
+                    color: '#ffffff'
                 });
             });
 
             polygon.on('mouseout', function(e) {
                 if (selectedPolygon !== polygon) {
                     this.setStyle({
-                        weight: 0.5,
-                        opacity: 0.8,
-                        fillOpacity: 0.8,
-                        color: '#ffffff'
+                        weight: 0,
+                        opacity: 0,
+                        fillOpacity: 0.7,
+                        color: color
                     });
                 }
             });
@@ -548,7 +413,6 @@ function addPolygonsToMap() {
     console.log(`✅ Polígonos adicionados com sucesso: ${sucessos}`);
     console.log(`❌ Erros encontrados: ${erros}`);
     console.log(`📍 Total de layers no mapa: ${layerGroup.getLayers().length}`);
-    console.log(`🎨 Paleta usada: ${ACTIVE_GRADIENT.length} cores`);
 
     // Ajustar zoom se há polígonos
     if (sucessos > 0) {
@@ -565,7 +429,7 @@ function addPolygonsToMap() {
         }
     }
 
-    // Criar legenda melhorada se há polígonos
+    // Criar legenda se há polígonos
     if (sucessos > 0 && values.length > 0) {
         try {
             createMapLegend(currentField, minValue, maxValue);
@@ -582,36 +446,23 @@ function addPolygonsToMap() {
 }
 
 // ================================
-// CRIAR CONTEÚDO DO POPUP - MELHORADO
+// CRIAR CONTEÚDO DO POPUP - CONFORME ESPECIFICAÇÃO
 // ================================
 function createPopupContentFixed(item) {
     const props = item.properties;
     
-    // POPUP MELHORADO com mais informações
+    // POPUP CONFORME ESPECIFICAÇÃO EXATA
     return `
-        <div style="min-width: 300px; font-family: Arial, sans-serif;">
-            <h4 style="margin: 0 0 12px 0; color: #1e3a5f; font-size: 16px; border-bottom: 2px solid #4CAF50; padding-bottom: 6px;">
+        <div style="min-width: 280px; font-family: Arial, sans-serif;">
+            <h4 style="margin: 0 0 10px 0; color: #1e3a5f; font-size: 16px;">
                 🏠 Imóvel ${item.id}
             </h4>
-            
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px;">
-                <div>
-                    <p style="margin: 4px 0; font-size: 13px;"><strong>🏘️ Bairro:</strong><br>${props.bairro}</p>
-                    <p style="margin: 4px 0; font-size: 13px;"><strong>📐 Área:</strong><br>${window.formatNumber ? window.formatNumber(props.area_edificacao, 2) : (props.area_edificacao || 0).toFixed(2)} m²</p>
-                    <p style="margin: 4px 0; font-size: 13px;"><strong>⚡ Produção:</strong><br>${window.formatNumber ? window.formatNumber(props.producao_telhado, 2) : (props.producao_telhado || 0).toFixed(2)} kW</p>
-                </div>
-                <div>
-                    <p style="margin: 4px 0; font-size: 13px;"><strong>☀️ Radiação:</strong><br>${window.formatNumber ? window.formatNumber(props.radiacao_max, 2) : (props.radiacao_max || 0).toFixed(2)} kW/m²</p>
-                    <p style="margin: 4px 0; font-size: 13px;"><strong>🔋 Placas:</strong><br>${window.formatNumber ? window.formatNumber(props.quantidade_placas, 0) : (props.quantidade_placas || 0)} unidades</p>
-                    <p style="margin: 4px 0; font-size: 13px;"><strong>💰 Renda:</strong><br>R$ ${window.formatNumber ? window.formatNumber(props.renda_domiciliar_per_capita, 2) : (props.renda_domiciliar_per_capita || 0).toFixed(2)}</p>
-                </div>
-            </div>
-            
-            <div style="background: #f8f9fa; padding: 8px; border-radius: 4px; border-left: 3px solid #4CAF50;">
-                <p style="margin: 2px 0; font-size: 12px; font-weight: bold; color: #2E7D32;">
-                    📊 Capacidade: ${window.formatNumber ? window.formatNumber(props.capacidade_por_m2, 2) : (props.capacidade_por_m2 || 0).toFixed(2)} kW/m²
-                </p>
-            </div>
+            <p style="margin: 5px 0;"><strong>Bairro:</strong> ${props.bairro}</p>
+            <p style="margin: 5px 0;"><strong>Área:</strong> ${window.formatNumber ? window.formatNumber(props.area_edificacao, 2) : (props.area_edificacao || 0).toFixed(2)} m²</p>
+            <p style="margin: 5px 0;"><strong>Produção:</strong> ${window.formatNumber ? window.formatNumber(props.producao_telhado, 2) : (props.producao_telhado || 0).toFixed(2)} kW</p>
+            <p style="margin: 5px 0;"><strong>Radiação:</strong> ${window.formatNumber ? window.formatNumber(props.radiacao_max, 2) : (props.radiacao_max || 0).toFixed(2)} kW/m²</p>
+            <p style="margin: 5px 0;"><strong>Placas:</strong> ${window.formatNumber ? window.formatNumber(props.quantidade_placas, 0) : (props.quantidade_placas || 0)} unidades</p>
+            <p style="margin: 5px 0;"><strong>Renda Total:</strong> R$ ${window.formatNumber ? window.formatNumber(props.renda_domiciliar_per_capita, 2) : (props.renda_domiciliar_per_capita || 0).toFixed(2)}</p>
         </div>
     `;
 }
@@ -623,18 +474,17 @@ function selectPolygon(imovelId, polygon) {
     // Limpar seleção anterior
     if (selectedPolygon) {
         selectedPolygon.setStyle({
-            weight: 0.5,
-            opacity: 0.8,
-            fillOpacity: 0.8,
-            color: '#ffffff'
+            weight: 0,
+            opacity: 0,
+            fillOpacity: 0.7
         });
     }
 
-    // Aplicar estilo de seleção mais visível
+    // Aplicar estilo de seleção
     polygon.setStyle({
-        weight: 4,
+        weight: 3,
         opacity: 1,
-        fillOpacity: 1,
+        fillOpacity: 0.9,
         color: '#FF0000'
     });
 
@@ -665,10 +515,9 @@ function centerOnImovel(imovelId) {
 function clearSelection() {
     if (selectedPolygon) {
         selectedPolygon.setStyle({
-            weight: 0.5,
-            opacity: 0.8,
-            fillOpacity: 0.8,
-            color: '#ffffff'
+            weight: 0,
+            opacity: 0,
+            fillOpacity: 0.7
         });
         selectedPolygon = null;
         console.log('🔄 Seleção limpa');
@@ -716,7 +565,6 @@ function diagnosticMap() {
     console.log('layerGroup:', !!layerGroup);
     console.log('dadosCompletos:', window.dadosCompletos?.length || 0);
     console.log('Polígonos no mapa:', layerGroup?.getLayers().length || 0);
-    console.log('Paleta ativa:', ACTIVE_GRADIENT.length, 'cores');
     
     if (window.dadosCompletos && window.dadosCompletos.length > 0) {
         const primeiro = window.dadosCompletos[0];
@@ -729,14 +577,6 @@ function diagnosticMap() {
         console.log('  - Radiação:', primeiro.properties?.radiacao_max);
         console.log('  - Placas:', primeiro.properties?.quantidade_placas);
         console.log('  - Centroid:', primeiro.centroid);
-    }
-    
-    // Testar paletas
-    console.log('🎨 Testando cores da paleta ativa:');
-    for (let i = 0; i < ACTIVE_GRADIENT.length; i++) {
-        const testValue = i / (ACTIVE_GRADIENT.length - 1);
-        const color = getGradientColor(testValue, 0, 1);
-        console.log(`  ${i}: ${ACTIVE_GRADIENT[i]} → ${color}`);
     }
 }
 
@@ -756,31 +596,25 @@ function testeRapidoMapa() {
         layerGroup.clearLayers();
     }
     
-    // Pegar primeiros 10 itens válidos com dados reais
+    // Pegar primeiros 5 itens válidos com dados reais
     const itensValidos = window.dadosCompletos.filter(item => 
         item.coordinates && item.coordinates.length > 0 &&
         item.centroid && item.centroid.length === 2 &&
         item.properties?.area_edificacao > 0
-    ).slice(0, 10);
+    ).slice(0, 5);
     
     console.log(`🧪 Testando com ${itensValidos.length} itens válidos`);
     
-    // Calcular valores para teste de gradiente
-    const valores = itensValidos.map(item => item.properties.capacidade_por_m2 || 0);
-    const minVal = Math.min(...valores);
-    const maxVal = Math.max(...valores);
-    
     itensValidos.forEach((item, index) => {
         try {
-            const valor = item.properties.capacidade_por_m2 || 0;
-            const color = getGradientColor(valor, minVal, maxVal);
+            const color = GRADIENT_COLORS[index % GRADIENT_COLORS.length];
             
             const polygon = L.polygon(item.coordinates, {
-                color: '#ffffff',
-                weight: 1,
+                color: color,
+                weight: 2,
                 opacity: 1,
                 fillColor: color,
-                fillOpacity: 0.8
+                fillOpacity: 0.7
             });
             
             const popupContent = createPopupContentFixed(item);
@@ -788,10 +622,7 @@ function testeRapidoMapa() {
             
             layerGroup.addLayer(polygon);
             
-            console.log(`✅ Polígono teste ${index + 1} adicionado:`);
-            console.log(`   ID: ${item.id} (${item.properties.bairro})`);
-            console.log(`   Valor: ${valor}`);
-            console.log(`   Cor: ${color}`);
+            console.log(`✅ Polígono teste ${index + 1} adicionado: ${item.id} (${item.properties.bairro})`);
             
         } catch (error) {
             console.error(`❌ Erro no polígono teste ${item.id}:`, error);
@@ -804,10 +635,6 @@ function testeRapidoMapa() {
             const featureGroup = new L.FeatureGroup(layerGroup.getLayers());
             mapInstance.fitBounds(featureGroup.getBounds());
             console.log('✅ Zoom ajustado para polígonos de teste');
-            
-            // Criar legenda de teste
-            createMapLegend('capacidade_por_m2', minVal, maxVal);
-            
         } catch (error) {
             console.warn('⚠️ Erro ao ajustar zoom no teste:', error);
         }
@@ -831,16 +658,6 @@ function verificarDadosValidosMapa() {
     let emSaoLuis = 0;
     let comDadosExcel = 0;
     let comValoresReais = 0;
-    
-    // Analisar distribuição de valores
-    const valores = {};
-    const campos = ['capacidade_por_m2', 'producao_telhado', 'area_edificacao', 'radiacao_max'];
-    
-    campos.forEach(campo => {
-        valores[campo] = window.dadosCompletos
-            .map(item => item.properties?.[campo] || 0)
-            .filter(val => val > 0);
-    });
     
     window.dadosCompletos.forEach(item => {
         if (item.coordinates && item.coordinates.length > 0) {
@@ -874,76 +691,10 @@ function verificarDadosValidosMapa() {
     console.log(`📋 Com dados Excel: ${comDadosExcel}`);
     console.log(`📈 Com valores reais: ${comValoresReais}`);
     
-    // Estatísticas por campo
-    console.log('\n📊 Distribuição de valores:');
-    campos.forEach(campo => {
-        const vals = valores[campo];
-        if (vals.length > 0) {
-            const min = Math.min(...vals);
-            const max = Math.max(...vals);
-            const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
-            
-            console.log(`  ${campo}:`);
-            console.log(`    Min: ${min.toFixed(2)}`);
-            console.log(`    Max: ${max.toFixed(2)}`);
-            console.log(`    Média: ${avg.toFixed(2)}`);
-            console.log(`    Registros: ${vals.length}`);
-        }
-    });
-    
     // Verificar bairros
     const bairros = [...new Set(window.dadosCompletos.map(item => item.properties?.bairro).filter(b => b && b !== 'Não informado'))];
-    console.log(`\n🏘️ Bairros únicos: ${bairros.length}`);
-    console.log('🏘️ Lista:', bairros);
-}
-
-// ================================
-// FUNÇÃO PARA TESTAR PALETAS
-// ================================
-function testarPaletas() {
-    console.log('🎨 === TESTE DE PALETAS ===');
-    
-    const paletas = {
-        'Rica': GRADIENT_COLORS_RICH,
-        'Solar': GRADIENT_COLORS_SOLAR,
-        'Vibrante': GRADIENT_COLORS_VIBRANT
-    };
-    
-    Object.entries(paletas).forEach(([nome, cores]) => {
-        console.log(`\n🎨 Paleta ${nome} (${cores.length} cores):`);
-        cores.forEach((cor, index) => {
-            console.log(`  ${index}: ${cor}`);
-        });
-        
-        // Testar interpolação
-        console.log(`  Interpolação teste:`);
-        for (let i = 0; i <= 10; i++) {
-            const valor = i / 10;
-            const corInterpolada = getGradientColorForPalette(valor, 0, 1, cores);
-            console.log(`    ${valor.toFixed(1)}: ${corInterpolada}`);
-        }
-    });
-}
-
-// ================================
-// FUNÇÃO AUXILIAR PARA TESTAR CORES DE PALETAS
-// ================================
-function getGradientColorForPalette(valor, minValue, maxValue, palette) {
-    if (maxValue === minValue) {
-        return palette[Math.floor(palette.length / 2)];
-    }
-    
-    const normalized = Math.max(0, Math.min(1, (valor - minValue) / (maxValue - minValue)));
-    const index = normalized * (palette.length - 1);
-    const lowerIndex = Math.floor(index);
-    const upperIndex = Math.ceil(index);
-    
-    if (lowerIndex === upperIndex) {
-        return palette[lowerIndex];
-    }
-    
-    const factor = index - lowerIndex;
-    return interpolateColors(palette[lowerIndex], palette[upperIndex], factor);
+    console.log(`🏘️ Bairros únicos: ${bairros.length}`);
+    console.log('🏘️ Lista:', bairros.slice(0, 10));
 }
 
 // ================================
@@ -958,24 +709,16 @@ window.updateMapColors = updateMapColors;
 window.filterMapPolygons = filterMapPolygons;
 window.createMapLegend = createMapLegend;
 window.getGradientColor = getGradientColor;
-window.changePalette = changePalette;
+window.GRADIENT_COLORS = GRADIENT_COLORS;
 window.autoZoomToBairro = autoZoomToBairro;
 window.formatNumberWithDots = formatNumberWithDots;
 window.diagnosticMap = diagnosticMap;
 window.testeRapidoMapa = testeRapidoMapa;
 window.verificarDadosValidosMapa = verificarDadosValidosMapa;
-window.testarPaletas = testarPaletas;
 window.createPopupContentFixed = createPopupContentFixed;
-window.interpolateColors = interpolateColors;
 
-// Exportar paletas
-window.GRADIENT_COLORS_RICH = GRADIENT_COLORS_RICH;
-window.GRADIENT_COLORS_SOLAR = GRADIENT_COLORS_SOLAR;
-window.GRADIENT_COLORS_VIBRANT = GRADIENT_COLORS_VIBRANT;
-
-console.log('✅ MAP.JS MELHORADO COMPLETO - Sistema de cores avançado!');
-console.log('🎨 Paletas disponíveis: Rica (7 cores), Solar (8 cores), Vibrante (9 cores)');
+console.log('✅ MAP.JS CORRIGIDO COMPLETO - Sistema de cores melhorado!');
+console.log('🎨 Paleta de 7 cores: Azul → Cinza → Laranja → Vermelho');
 console.log('🧪 Execute testeRapidoMapa() para teste');
 console.log('🔍 Execute verificarDadosValidosMapa() para diagnóstico');
-console.log('🎨 Execute testarPaletas() para testar todas as paletas');
 console.log('🔍 Execute diagnosticMap() para verificação geral');
