@@ -280,133 +280,148 @@ function applyFilters() {
 }
 
 // ================================
-// ATUALIZAR CARDS COM FILTROS - FUNÇÃO CORRIGIDA V2
+// ATUALIZAR CARDS COM FILTROS - FUNÇÃO DE DEBUG INTENSIVO
 // ================================
 function updateSummaryCardsWithFilters() {
-    console.log('📊 Atualizando cards com filtros aplicados...');
+    console.log('📊 === INICIANDO DEBUG INTENSIVO DOS CARDS ===');
     
     // Verificar se temos dados
     if (!window.dadosCompletos || !window.dadosCompletos.length) {
-        console.warn('⚠️ dadosCompletos não disponível');
+        console.error('❌ dadosCompletos não disponível');
         return;
     }
 
     console.log(`📊 Total de dados disponíveis: ${window.dadosCompletos.length}`);
     console.log(`📊 Filtros ativos:`, window.filtrosAtivos);
 
-    // FORÇAR FILTRO MANUAL - não depender de window.filtrarDados()
-    const dadosFiltrados = window.dadosCompletos.filter(item => {
-        if (!item || !item.properties) {
-            return false;
-        }
+    // Verificar estrutura dos filtros
+    if (!window.filtrosAtivos) {
+        console.error('❌ window.filtrosAtivos é null/undefined');
+        return;
+    }
+
+    const bairrosFiltro = window.filtrosAtivos.bairros;
+    console.log(`🔍 Bairros no filtro:`, bairrosFiltro);
+    console.log(`🔍 Tem filtro de bairro? ${bairrosFiltro && bairrosFiltro.length > 0}`);
+
+    if (bairrosFiltro && bairrosFiltro.length > 0) {
+        const bairroSelecionado = bairrosFiltro[0];
+        console.log(`🎯 Bairro selecionado: "${bairroSelecionado}"`);
+        console.log(`🎯 Tipo do bairro: ${typeof bairroSelecionado}`);
+        console.log(`🎯 Comprimento: ${bairroSelecionado.length}`);
+
+        // Verificar quantos itens têm esse bairro EXATO
+        let count = 0;
+        let exemplosBairros = [];
         
-        const props = item.properties;
-        
-        // Debug: log do primeiro item para verificar estrutura
-        if (window.dadosCompletos.indexOf(item) === 0) {
-            console.log('📋 Estrutura do primeiro item:', {
-                id: item.id,
-                bairro: props.bairro,
-                capacidade: props.capacidade_por_m2
-            });
-        }
-        
-        // Filtro por bairro
-        if (window.filtrosAtivos?.bairros?.length > 0) {
-            const bairroFiltro = window.filtrosAtivos.bairros[0];
-            const bairroItem = props.bairro;
+        for (let i = 0; i < Math.min(10, window.dadosCompletos.length); i++) {
+            const item = window.dadosCompletos[i];
+            const bairroItem = item.properties?.bairro;
             
-            console.log(`🔍 Comparando: "${bairroItem}" === "${bairroFiltro}"`);
+            if (i < 5) {
+                exemplosBairros.push({
+                    id: item.id,
+                    bairro: `"${bairroItem}"`,
+                    match: bairroItem === bairroSelecionado
+                });
+            }
             
-            if (bairroItem !== bairroFiltro) {
-                return false;
+            if (bairroItem === bairroSelecionado) {
+                count++;
             }
         }
         
-        // Filtro por valores (opcional)
-        if (window.filtrosAtivos?.info) {
-            const valor = props[window.filtrosAtivos.info] || 0;
-            
-            if (window.filtrosAtivos.minValue !== null && valor < window.filtrosAtivos.minValue) {
-                return false;
-            }
-            
-            if (window.filtrosAtivos.maxValue !== null && valor > window.filtrosAtivos.maxValue) {
-                return false;
-            }
-        }
-        
-        return true;
-    });
-    
-    console.log(`📊 Dados filtrados: ${dadosFiltrados.length} de ${window.dadosCompletos.length}`);
-    
-    // Se ainda está retornando todos os dados, há problema no filtro
-    if (window.filtrosAtivos?.bairros?.length > 0 && dadosFiltrados.length === window.dadosCompletos.length) {
-        console.error('❌ PROBLEMA: Filtro não está funcionando!');
-        
-        // Debug detalhado
-        const bairroFiltro = window.filtrosAtivos.bairros[0];
-        console.log(`🔍 Bairro do filtro: "${bairroFiltro}"`);
-        
-        // Verificar quantos itens têm esse bairro
-        const itensDoBairro = window.dadosCompletos.filter(item => 
-            item.properties?.bairro === bairroFiltro
+        console.log(`🔍 Exemplos dos primeiros 5 itens:`, exemplosBairros);
+        console.log(`🔍 Matches encontrados nos primeiros 10: ${count}`);
+
+        // Contar TODOS os matches
+        const todosMatches = window.dadosCompletos.filter(item => 
+            item.properties?.bairro === bairroSelecionado
         );
-        console.log(`🔍 Itens encontrados com bairro "${bairroFiltro}": ${itensDoBairro.length}`);
         
-        // Verificar bairros únicos disponíveis
-        const bairrosUnicos = [...new Set(
-            window.dadosCompletos.map(item => item.properties?.bairro).filter(b => b)
-        )];
-        console.log(`🔍 Bairros únicos disponíveis:`, bairrosUnicos);
-        
-        // Usar os dados corretos do bairro
-        if (itensDoBairro.length > 0) {
-            console.log(`✅ Usando ${itensDoBairro.length} itens do bairro para cálculo`);
-            updateCardsDisplay(itensDoBairro, bairroFiltro);
+        console.log(`✅ Total de matches para "${bairroSelecionado}": ${todosMatches.length}`);
+
+        // Se encontrou matches, usar esses dados
+        if (todosMatches.length > 0) {
+            console.log(`🎯 Usando ${todosMatches.length} itens filtrados para cálculo`);
+            updateCardsDisplay(todosMatches, bairroSelecionado);
             return;
+        } else {
+            console.error(`❌ NENHUM MATCH encontrado para bairro "${bairroSelecionado}"`);
+            
+            // Mostrar todos os bairros únicos disponíveis
+            const bairrosUnicos = [...new Set(
+                window.dadosCompletos.map(item => item.properties?.bairro).filter(b => b)
+            )];
+            
+            console.log(`🔍 Bairros disponíveis (${bairrosUnicos.length}):`, bairrosUnicos);
+            
+            // Verificar se há similaridade
+            const similares = bairrosUnicos.filter(b => 
+                b.includes(bairroSelecionado) || bairroSelecionado.includes(b)
+            );
+            
+            if (similares.length > 0) {
+                console.log(`🔍 Bairros similares encontrados:`, similares);
+            }
         }
     }
-    
-    // Calcular e atualizar normalmente
-    updateCardsDisplay(dadosFiltrados, window.filtrosAtivos?.bairros?.[0] || 'Todos');
+
+    // Se chegou aqui, usar todos os dados
+    console.log(`📊 Usando todos os dados (${window.dadosCompletos.length})`);
+    updateCardsDisplay(window.dadosCompletos, 'Todos');
 }
 
 // ================================
 // ATUALIZAR DISPLAY DOS CARDS
 // ================================
 function updateCardsDisplay(dados, bairroNome) {
+    console.log(`📊 === ATUALIZANDO CARDS PARA: ${bairroNome} ===`);
+    console.log(`📊 Dados recebidos: ${dados.length} itens`);
+    
     const totalImoveis = dados.length;
     
     const producaoTotal = dados.reduce((sum, item) => {
-        return sum + (item.properties?.capacidade_por_m2 || 0);
+        const valor = item.properties?.capacidade_por_m2 || 0;
+        return sum + valor;
     }, 0);
     
     const mediaPorImovel = totalImoveis > 0 ? producaoTotal / totalImoveis : 0;
+
+    console.log(`📊 Cálculos realizados:`);
+    console.log(`   - Total Imóveis: ${totalImoveis}`);
+    console.log(`   - Produção Total: ${producaoTotal.toFixed(2)}`);
+    console.log(`   - Média: ${mediaPorImovel.toFixed(2)}`);
 
     // Atualizar elementos HTML
     const totalEl = document.getElementById('total-imoveis-display');
     const producaoEl = document.getElementById('producao-total-display');
     const mediaEl = document.getElementById('media-imovel-display');
     
+    console.log(`📊 Elementos HTML encontrados:`);
+    console.log(`   - total-imoveis-display: ${!!totalEl}`);
+    console.log(`   - producao-total-display: ${!!producaoEl}`);
+    console.log(`   - media-imovel-display: ${!!mediaEl}`);
+    
     if (totalEl) {
-        totalEl.textContent = totalImoveis.toLocaleString('pt-BR');
+        const textoTotal = totalImoveis.toLocaleString('pt-BR');
+        totalEl.textContent = textoTotal;
+        console.log(`   ✅ Total atualizado para: "${textoTotal}"`);
     }
     
     if (producaoEl) {
-        producaoEl.textContent = window.formatNumber ? window.formatNumber(producaoTotal, 2) : producaoTotal.toFixed(2);
+        const textoProducao = window.formatNumber ? window.formatNumber(producaoTotal, 2) : producaoTotal.toFixed(2);
+        producaoEl.textContent = textoProducao;
+        console.log(`   ✅ Produção atualizada para: "${textoProducao}"`);
     }
     
     if (mediaEl) {
-        mediaEl.textContent = window.formatNumber ? window.formatNumber(mediaPorImovel, 2) : mediaPorImovel.toFixed(2);
+        const textoMedia = window.formatNumber ? window.formatNumber(mediaPorImovel, 2) : mediaPorImovel.toFixed(2);
+        mediaEl.textContent = textoMedia;
+        console.log(`   ✅ Média atualizada para: "${textoMedia}"`);
     }
 
-    // Log para debug
-    console.log(`📊 Cards atualizados para: ${bairroNome}`);
-    console.log(`   📍 Total de Imóveis: ${totalImoveis.toLocaleString('pt-BR')}`);
-    console.log(`   ⚡ Produção Total: ${producaoTotal.toFixed(2)} kW`);
-    console.log(`   📈 Média por Imóvel: ${mediaPorImovel.toFixed(2)} kW`);
+    console.log(`✅ Cards atualizados com sucesso para: ${bairroNome}`);
 }
 
 // ================================
