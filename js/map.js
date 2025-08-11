@@ -163,6 +163,65 @@ function addPaletteControl() {
 }
 
 // ================================
+// FUNÇÃO AUXILIAR PARA CONVERTER HEX PARA RGB
+// ================================
+function hexToRgb(hex) {
+    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return result ? {
+        r: parseInt(result[1], 16),
+        g: parseInt(result[2], 16),
+        b: parseInt(result[3], 16)
+    } : null;
+}
+
+// ================================
+// INTERPOLAÇÃO DE CORES MELHORADA
+// ================================
+function interpolateColors(color1, color2, factor) {
+    const rgb1 = hexToRgb(color1);
+    const rgb2 = hexToRgb(color2);
+    
+    if (!rgb1 || !rgb2) {
+        return color1;
+    }
+    
+    const r = Math.round(rgb1.r + (rgb2.r - rgb1.r) * factor);
+    const g = Math.round(rgb1.g + (rgb2.g - rgb1.g) * factor);
+    const b = Math.round(rgb1.b + (rgb2.b - rgb1.b) * factor);
+    
+    return `rgb(${r}, ${g}, ${b})`;
+}
+
+// ================================
+// FUNÇÃO MELHORADA PARA OBTER COR DO GRADIENTE
+// ================================
+function getGradientColor(valor, minValue, maxValue) {
+    if (maxValue === minValue) {
+        return ACTIVE_GRADIENT[Math.floor(ACTIVE_GRADIENT.length / 2)];
+    }
+    
+    // Normalizar valor entre 0 e 1
+    const normalized = Math.max(0, Math.min(1, (valor - minValue) / (maxValue - minValue)));
+    
+    // Calcular índice na paleta
+    const index = normalized * (ACTIVE_GRADIENT.length - 1);
+    const lowerIndex = Math.floor(index);
+    const upperIndex = Math.ceil(index);
+    
+    // Se índices são iguais, retornar cor direta
+    if (lowerIndex === upperIndex) {
+        return ACTIVE_GRADIENT[lowerIndex];
+    }
+    
+    // Interpolação suave entre duas cores
+    const factor = index - lowerIndex;
+    const lowerColor = ACTIVE_GRADIENT[lowerIndex];
+    const upperColor = ACTIVE_GRADIENT[upperIndex];
+    
+    return interpolateColors(lowerColor, upperColor, factor);
+}
+
+// ================================
 // CRIAR LEGENDA MELHORADA COM MAIS DIVISÕES
 // ================================
 function createMapLegend(currentField, minValue, maxValue) {
@@ -270,62 +329,32 @@ function createMapLegend(currentField, minValue, maxValue) {
 }
 
 // ================================
-// FUNÇÃO MELHORADA PARA OBTER COR DO GRADIENTE
+// CALCULAR BOUNDS DE UM CONJUNTO DE DADOS
 // ================================
-function getGradientColor(valor, minValue, maxValue) {
-    if (maxValue === minValue) {
-        return ACTIVE_GRADIENT[Math.floor(ACTIVE_GRADIENT.length / 2)];
-    }
+function calculateBounds(dados) {
+    if (!dados || dados.length === 0) return null;
     
-    // Normalizar valor entre 0 e 1
-    const normalized = Math.max(0, Math.min(1, (valor - minValue) / (maxValue - minValue)));
+    let minLat = Infinity, maxLat = -Infinity;
+    let minLng = Infinity, maxLng = -Infinity;
     
-    // Calcular índice na paleta
-    const index = normalized * (ACTIVE_GRADIENT.length - 1);
-    const lowerIndex = Math.floor(index);
-    const upperIndex = Math.ceil(index);
+    dados.forEach(item => {
+        if (item.centroid && item.centroid.length >= 2) {
+            const lat = item.centroid[0];
+            const lng = item.centroid[1];
+            
+            minLat = Math.min(minLat, lat);
+            maxLat = Math.max(maxLat, lat);
+            minLng = Math.min(minLng, lng);
+            maxLng = Math.max(maxLng, lng);
+        }
+    });
     
-    // Se índices são iguais, retornar cor direta
-    if (lowerIndex === upperIndex) {
-        return ACTIVE_GRADIENT[lowerIndex];
-    }
+    if (minLat === Infinity) return null;
     
-    // Interpolação suave entre duas cores
-    const factor = index - lowerIndex;
-    const lowerColor = ACTIVE_GRADIENT[lowerIndex];
-    const upperColor = ACTIVE_GRADIENT[upperIndex];
-    
-    return interpolateColors(lowerColor, upperColor, factor);
-}
-
-// ================================
-// INTERPOLAÇÃO DE CORES MELHORADA
-// ================================
-function interpolateColors(color1, color2, factor) {
-    const rgb1 = hexToRgb(color1);
-    const rgb2 = hexToRgb(color2);
-    
-    if (!rgb1 || !rgb2) {
-        return color1;
-    }
-    
-    const r = Math.round(rgb1.r + (rgb2.r - rgb1.r) * factor);
-    const g = Math.round(rgb1.g + (rgb2.g - rgb1.g) * factor);
-    const b = Math.round(rgb1.b + (rgb2.b - rgb1.b) * factor);
-    
-    return `rgb(${r}, ${g}, ${b})`;
-}
-
-// ================================
-// FUNÇÃO AUXILIAR PARA CONVERTER HEX PARA RGB
-// ================================
-function hexToRgb(hex) {
-    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-    return result ? {
-        r: parseInt(result[1], 16),
-        g: parseInt(result[2], 16),
-        b: parseInt(result[3], 16)
-    } : null;
+    return [
+        [minLat, minLng],
+        [maxLat, maxLng]
+    ];
 }
 
 // ================================
@@ -364,35 +393,6 @@ function autoZoomToBairro(bairroSelecionado) {
         });
         console.log(`🎯 Zoom automático para bairro: ${bairroSelecionado} (${imoveisDoBairro.length} imóveis)`);
     }
-}
-
-// ================================
-// CALCULAR BOUNDS DE UM CONJUNTO DE DADOS
-// ================================
-function calculateBounds(dados) {
-    if (!dados || dados.length === 0) return null;
-    
-    let minLat = Infinity, maxLat = -Infinity;
-    let minLng = Infinity, maxLng = -Infinity;
-    
-    dados.forEach(item => {
-        if (item.centroid && item.centroid.length >= 2) {
-            const lat = item.centroid[0];
-            const lng = item.centroid[1];
-            
-            minLat = Math.min(minLat, lat);
-            maxLat = Math.max(maxLat, lat);
-            minLng = Math.min(minLng, lng);
-            maxLng = Math.max(maxLng, lng);
-        }
-    });
-    
-    if (minLat === Infinity) return null;
-    
-    return [
-        [minLat, minLng],
-        [maxLat, maxLng]
-    ];
 }
 
 // ================================
@@ -703,3 +703,279 @@ function filterMapPolygons() {
 
     // Recriar o mapa completamente com os dados filtrados
     addPolygonsToMap();
+    
+    console.log('✅ Filtros aplicados no mapa');
+}
+
+// ================================
+// FUNÇÃO DE DIAGNÓSTICO DO MAPA
+// ================================
+function diagnosticMap() {
+    console.log('🔍 === DIAGNÓSTICO DO MAPA ===');
+    console.log('mapInstance:', !!mapInstance);
+    console.log('layerGroup:', !!layerGroup);
+    console.log('dadosCompletos:', window.dadosCompletos?.length || 0);
+    console.log('Polígonos no mapa:', layerGroup?.getLayers().length || 0);
+    console.log('Paleta ativa:', ACTIVE_GRADIENT.length, 'cores');
+    
+    if (window.dadosCompletos && window.dadosCompletos.length > 0) {
+        const primeiro = window.dadosCompletos[0];
+        console.log('Primeiro item:');
+        console.log('  - ID:', primeiro.id);
+        console.log('  - Bairro:', primeiro.properties?.bairro);
+        console.log('  - Área:', primeiro.properties?.area_edificacao);
+        console.log('  - Produção:', primeiro.properties?.producao_telhado);
+        console.log('  - Capacidade/m²:', primeiro.properties?.capacidade_por_m2);
+        console.log('  - Radiação:', primeiro.properties?.radiacao_max);
+        console.log('  - Placas:', primeiro.properties?.quantidade_placas);
+        console.log('  - Centroid:', primeiro.centroid);
+    }
+    
+    // Testar paletas
+    console.log('🎨 Testando cores da paleta ativa:');
+    for (let i = 0; i < ACTIVE_GRADIENT.length; i++) {
+        const testValue = i / (ACTIVE_GRADIENT.length - 1);
+        const color = getGradientColor(testValue, 0, 1);
+        console.log(`  ${i}: ${ACTIVE_GRADIENT[i]} → ${color}`);
+    }
+}
+
+// ================================
+// FUNÇÃO DE TESTE RÁPIDO DO MAPA
+// ================================
+function testeRapidoMapa() {
+    console.log('🧪 === TESTE RÁPIDO DO MAPA ===');
+    
+    if (!window.dadosCompletos || window.dadosCompletos.length === 0) {
+        console.error('❌ Dados não carregados');
+        return;
+    }
+    
+    // Limpar mapa
+    if (layerGroup) {
+        layerGroup.clearLayers();
+    }
+    
+    // Pegar primeiros 10 itens válidos com dados reais
+    const itensValidos = window.dadosCompletos.filter(item => 
+        item.coordinates && item.coordinates.length > 0 &&
+        item.centroid && item.centroid.length === 2 &&
+        item.properties?.area_edificacao > 0
+    ).slice(0, 10);
+    
+    console.log(`🧪 Testando com ${itensValidos.length} itens válidos`);
+    
+    // Calcular valores para teste de gradiente
+    const valores = itensValidos.map(item => item.properties.capacidade_por_m2 || 0);
+    const minVal = Math.min(...valores);
+    const maxVal = Math.max(...valores);
+    
+    itensValidos.forEach((item, index) => {
+        try {
+            const valor = item.properties.capacidade_por_m2 || 0;
+            const color = getGradientColor(valor, minVal, maxVal);
+            
+            const polygon = L.polygon(item.coordinates, {
+                color: '#ffffff',
+                weight: 1,
+                opacity: 1,
+                fillColor: color,
+                fillOpacity: 0.8
+            });
+            
+            const popupContent = createPopupContentFixed(item);
+            polygon.bindPopup(popupContent);
+            
+            layerGroup.addLayer(polygon);
+            
+            console.log(`✅ Polígono teste ${index + 1} adicionado:`);
+            console.log(`   ID: ${item.id} (${item.properties.bairro})`);
+            console.log(`   Valor: ${valor}`);
+            console.log(`   Cor: ${color}`);
+            
+        } catch (error) {
+            console.error(`❌ Erro no polígono teste ${item.id}:`, error);
+        }
+    });
+    
+    // Ajustar zoom
+    if (layerGroup.getLayers().length > 0) {
+        try {
+            const featureGroup = new L.FeatureGroup(layerGroup.getLayers());
+            mapInstance.fitBounds(featureGroup.getBounds());
+            console.log('✅ Zoom ajustado para polígonos de teste');
+            
+            // Criar legenda de teste
+            createMapLegend('capacidade_por_m2', minVal, maxVal);
+            
+        } catch (error) {
+            console.warn('⚠️ Erro ao ajustar zoom no teste:', error);
+        }
+    }
+}
+
+// ================================
+// VERIFICAR DADOS VÁLIDOS NO MAPA
+// ================================
+function verificarDadosValidosMapa() {
+    console.log('🔍 === VERIFICAÇÃO DE DADOS VÁLIDOS ===');
+    
+    if (!window.dadosCompletos || window.dadosCompletos.length === 0) {
+        console.error('❌ Nenhum dado carregado');
+        return;
+    }
+    
+    const total = window.dadosCompletos.length;
+    let comCoordenadas = 0;
+    let comCentroide = 0;
+    let emSaoLuis = 0;
+    let comDadosExcel = 0;
+    let comValoresReais = 0;
+    
+    // Analisar distribuição de valores
+    const valores = {};
+    const campos = ['capacidade_por_m2', 'producao_telhado', 'area_edificacao', 'radiacao_max'];
+    
+    campos.forEach(campo => {
+        valores[campo] = window.dadosCompletos
+            .map(item => item.properties?.[campo] || 0)
+            .filter(val => val > 0);
+    });
+    
+    window.dadosCompletos.forEach(item => {
+        if (item.coordinates && item.coordinates.length > 0) {
+            comCoordenadas++;
+        }
+        
+        if (item.centroid && item.centroid.length === 2) {
+            comCentroide++;
+            
+            const [lat, lng] = item.centroid;
+            if (lat >= -3 && lat <= -2 && lng >= -45 && lng <= -43) {
+                emSaoLuis++;
+            }
+        }
+        
+        if (item.isLinked) {
+            comDadosExcel++;
+        }
+        
+        if (item.properties?.area_edificacao > 0 || 
+            item.properties?.producao_telhado > 0 || 
+            item.properties?.capacidade_por_m2 > 0) {
+            comValoresReais++;
+        }
+    });
+    
+    console.log(`📊 Total de itens: ${total}`);
+    console.log(`📍 Com coordenadas: ${comCoordenadas}`);
+    console.log(`🎯 Com centroide: ${comCentroide}`);
+    console.log(`🗺️ Em São Luís: ${emSaoLuis}`);
+    console.log(`📋 Com dados Excel: ${comDadosExcel}`);
+    console.log(`📈 Com valores reais: ${comValoresReais}`);
+    
+    // Estatísticas por campo
+    console.log('\n📊 Distribuição de valores:');
+    campos.forEach(campo => {
+        const vals = valores[campo];
+        if (vals.length > 0) {
+            const min = Math.min(...vals);
+            const max = Math.max(...vals);
+            const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
+            
+            console.log(`  ${campo}:`);
+            console.log(`    Min: ${min.toFixed(2)}`);
+            console.log(`    Max: ${max.toFixed(2)}`);
+            console.log(`    Média: ${avg.toFixed(2)}`);
+            console.log(`    Registros: ${vals.length}`);
+        }
+    });
+    
+    // Verificar bairros
+    const bairros = [...new Set(window.dadosCompletos.map(item => item.properties?.bairro).filter(b => b && b !== 'Não informado'))];
+    console.log(`\n🏘️ Bairros únicos: ${bairros.length}`);
+    console.log('🏘️ Lista:', bairros);
+}
+
+// ================================
+// FUNÇÃO PARA TESTAR PALETAS
+// ================================
+function testarPaletas() {
+    console.log('🎨 === TESTE DE PALETAS ===');
+    
+    const paletas = {
+        'Rica': GRADIENT_COLORS_RICH,
+        'Solar': GRADIENT_COLORS_SOLAR,
+        'Vibrante': GRADIENT_COLORS_VIBRANT
+    };
+    
+    Object.entries(paletas).forEach(([nome, cores]) => {
+        console.log(`\n🎨 Paleta ${nome} (${cores.length} cores):`);
+        cores.forEach((cor, index) => {
+            console.log(`  ${index}: ${cor}`);
+        });
+        
+        // Testar interpolação
+        console.log(`  Interpolação teste:`);
+        for (let i = 0; i <= 10; i++) {
+            const valor = i / 10;
+            const corInterpolada = getGradientColorForPalette(valor, 0, 1, cores);
+            console.log(`    ${valor.toFixed(1)}: ${corInterpolada}`);
+        }
+    });
+}
+
+// ================================
+// FUNÇÃO AUXILIAR PARA TESTAR CORES DE PALETAS
+// ================================
+function getGradientColorForPalette(valor, minValue, maxValue, palette) {
+    if (maxValue === minValue) {
+        return palette[Math.floor(palette.length / 2)];
+    }
+    
+    const normalized = Math.max(0, Math.min(1, (valor - minValue) / (maxValue - minValue)));
+    const index = normalized * (palette.length - 1);
+    const lowerIndex = Math.floor(index);
+    const upperIndex = Math.ceil(index);
+    
+    if (lowerIndex === upperIndex) {
+        return palette[lowerIndex];
+    }
+    
+    const factor = index - lowerIndex;
+    return interpolateColors(palette[lowerIndex], palette[upperIndex], factor);
+}
+
+// ================================
+// EXPORTAÇÕES GLOBAIS
+// ================================
+window.initMap = initMap;
+window.addPolygonsToMap = addPolygonsToMap;
+window.selectPolygon = selectPolygon;
+window.centerOnImovel = centerOnImovel;
+window.clearSelection = clearSelection;
+window.updateMapColors = updateMapColors;
+window.filterMapPolygons = filterMapPolygons;
+window.createMapLegend = createMapLegend;
+window.getGradientColor = getGradientColor;
+window.changePalette = changePalette;
+window.autoZoomToBairro = autoZoomToBairro;
+window.formatNumberWithDots = formatNumberWithDots;
+window.diagnosticMap = diagnosticMap;
+window.testeRapidoMapa = testeRapidoMapa;
+window.verificarDadosValidosMapa = verificarDadosValidosMapa;
+window.testarPaletas = testarPaletas;
+window.createPopupContentFixed = createPopupContentFixed;
+window.interpolateColors = interpolateColors;
+
+// Exportar paletas
+window.GRADIENT_COLORS_RICH = GRADIENT_COLORS_RICH;
+window.GRADIENT_COLORS_SOLAR = GRADIENT_COLORS_SOLAR;
+window.GRADIENT_COLORS_VIBRANT = GRADIENT_COLORS_VIBRANT;
+
+console.log('✅ MAP.JS MELHORADO COMPLETO - Sistema de cores avançado!');
+console.log('🎨 Paletas disponíveis: Rica (7 cores), Solar (8 cores), Vibrante (9 cores)');
+console.log('🧪 Execute testeRapidoMapa() para teste');
+console.log('🔍 Execute verificarDadosValidosMapa() para diagnóstico');
+console.log('🎨 Execute testarPaletas() para testar todas as paletas');
+console.log('🔍 Execute diagnosticMap() para verificação geral');
