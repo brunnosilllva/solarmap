@@ -1,6 +1,6 @@
 // ================================
 // MAPA INTERATIVO - SOLARMAP
-// VERSÃO CORRIGIDA BASEADA NO ORIGINAL + CORES MELHORADAS
+// VERSÃO CORRIGIDA COMPLETA - Popup e funcionalidades conforme especificação
 // ================================
 
 // Variáveis globais do mapa
@@ -10,15 +10,10 @@ let selectedPolygon = null;
 let legendControl = null;
 let allPolygons = [];
 
-// CORES GRADIENTE MELHORADAS: Azul → Cinza → Laranja → Vermelho (7 cores)
+// CORES GRADIENTE: Laranja → Vermelho (conforme especificação)
 const GRADIENT_COLORS = [
-    '#2166ac',  // Azul escuro (valores muito baixos)
-    '#4393c3',  // Azul médio 
-    '#92c5de',  // Azul claro
-    '#f7f7f7',  // Cinza claro (valores médios)
-    '#fdbf6f',  // Laranja claro
-    '#ff7f00',  // Laranja
-    '#d73027'   // Vermelho (valores altos)
+    '#FFA500', '#FF8C00', '#FF7F00', '#FF6500',  // Laranja claro → médio
+    '#FF4500', '#FF2500', '#FF0000', '#DC143C'   // Laranja escuro → Vermelho
 ];
 
 // ================================
@@ -67,110 +62,7 @@ function initMap() {
 }
 
 // ================================
-// CLASSIFICAÇÃO POR CONTAGEM IGUAL (QUARTIS/QUANTIS)
-// ================================
-function calcularClassesPorContagemIgual(dados, campo, numClasses = 6) {
-    console.log(`📊 Calculando ${numClasses} classes por contagem igual para ${campo}`);
-    
-    // Obter todos os valores válidos e ordená-los
-    const valoresValidos = dados
-        .map(item => item.properties?.[campo] || 0)
-        .filter(val => val > 0)
-        .sort((a, b) => a - b);
-    
-    if (valoresValidos.length === 0) {
-        console.warn('⚠️ Nenhum valor válido encontrado');
-        return null;
-    }
-    
-    console.log(`📊 Total de valores válidos: ${valoresValidos.length}`);
-    
-    // Calcular quantos itens por classe
-    const itensPorClasse = Math.floor(valoresValidos.length / numClasses);
-    const resto = valoresValidos.length % numClasses;
-    
-    console.log(`📊 Itens por classe: ${itensPorClasse} (resto: ${resto})`);
-    
-    const classes = [];
-    let indiceAtual = 0;
-    
-    for (let i = 0; i < numClasses; i++) {
-        // Calcular quantos itens esta classe deve ter
-        const itensDaClasse = itensPorClasse + (i < resto ? 1 : 0);
-        
-        // Valor mínimo da classe
-        const valorMin = valoresValidos[indiceAtual];
-        
-        // Valor máximo da classe
-        const proximoIndice = indiceAtual + itensDaClasse - 1;
-        const valorMax = valoresValidos[Math.min(proximoIndice, valoresValidos.length - 1)];
-        
-        // Cor da classe
-        const corIndex = Math.floor(i * (GRADIENT_COLORS.length - 1) / (numClasses - 1));
-        const cor = GRADIENT_COLORS[corIndex];
-        
-        classes.push({
-            indice: i,
-            valorMin: valorMin,
-            valorMax: valorMax,
-            cor: cor,
-            quantidadeEsperada: itensDaClasse,
-            quantidadeReal: 0 // Será calculado depois
-        });
-        
-        indiceAtual += itensDaClasse;
-        
-        console.log(`📊 Classe ${i}: ${valorMin.toFixed(2)} - ${valorMax.toFixed(2)} (${itensDaClasse} itens) - ${cor}`);
-    }
-    
-    // Verificar quantos itens realmente caem em cada classe
-    dados.forEach(item => {
-        const valor = item.properties?.[campo] || 0;
-        if (valor > 0) {
-            for (let classe of classes) {
-                if (valor >= classe.valorMin && valor <= classe.valorMax) {
-                    classe.quantidadeReal++;
-                    break;
-                }
-            }
-        }
-    });
-    
-    // Log final das classes
-    console.log('📊 === RESULTADO DA CLASSIFICAÇÃO ===');
-    classes.forEach((classe, i) => {
-        console.log(`Classe ${i}: ${classe.valorMin.toFixed(2)} - ${classe.valorMax.toFixed(2)}`);
-        console.log(`  Esperado: ${classe.quantidadeEsperada} | Real: ${classe.quantidadeReal} | Cor: ${classe.cor}`);
-    });
-    
-    return classes;
-}
-
-// ================================
-// OBTER COR BASEADA EM CLASSIFICAÇÃO POR CONTAGEM IGUAL
-// ================================
-function getCorPorContagemIgual(valor, classes) {
-    if (!classes || classes.length === 0) {
-        return GRADIENT_COLORS[0];
-    }
-    
-    // Encontrar a classe do valor
-    for (let classe of classes) {
-        if (valor >= classe.valorMin && valor <= classe.valorMax) {
-            return classe.cor;
-        }
-    }
-    
-    // Se não encontrou, usar a primeira ou última classe
-    if (valor < classes[0].valorMin) {
-        return classes[0].cor;
-    } else {
-        return classes[classes.length - 1].cor;
-    }
-}
-
-// ================================
-// CRIAR LEGENDA ESTILO QGIS COM CONTAGEM IGUAL
+// CRIAR LEGENDA EM GRADIENTE
 // ================================
 function createMapLegend(currentField, minValue, maxValue) {
     // Remover legenda anterior se existir
@@ -181,23 +73,10 @@ function createMapLegend(currentField, minValue, maxValue) {
     // Títulos dos campos conforme especificação
     const fieldTitles = {
         'capacidade_por_m2': 'Capacidade por m² (kW)',
-        'producao_telhado': 'Produção do Telhado (kW)',
-        'area_edificacao': 'Área da Edificação (m²)',
-        'radiacao_max': 'Radiação Máxima (kW/m²)',
-        'quantidade_placas': 'Quantidade de Placas',
-        'renda_total': 'Renda Total (R$)'
+        'producao_telhado': 'Produção do Telhado (kW)'
     };
     
     const title = fieldTitles[currentField] || currentField;
-    
-    // NOVO: Calcular classes por contagem igual
-    const dadosFiltrados = window.filtrarDados ? window.filtrarDados() : window.dadosCompletos;
-    const classes = calcularClassesPorContagemIgual(dadosFiltrados, currentField, 6);
-    
-    if (!classes) {
-        console.error('❌ Não foi possível calcular classes');
-        return;
-    }
     
     // Criar controle de legenda
     legendControl = L.control({ position: 'topright' });
@@ -212,94 +91,60 @@ function createMapLegend(currentField, minValue, maxValue) {
             font-family: Arial, sans-serif;
             font-size: 12px;
             line-height: 1.4;
-            min-width: 240px;
-            max-width: 300px;
+            min-width: 180px;
         `;
         
         // Título da legenda
-        div.innerHTML = `<h4 style="margin: 0 0 12px 0; color: #1e3a5f; font-size: 14px; font-weight: bold;">${title}</h4>`;
+        div.innerHTML = `<h4 style="margin: 0 0 10px 0; color: #1e3a5f; font-size: 14px; font-weight: bold;">${title}</h4>`;
         
-        // Criar classes estilo QGIS com contagem igual
-        let classesHtml = '<div style="margin-bottom: 10px;">';
+        // Criar gradiente CSS (Laranja → Vermelho)
+        const gradientStops = GRADIENT_COLORS.map((color, index) => {
+            const percentage = (index / (GRADIENT_COLORS.length - 1)) * 100;
+            return `${color} ${percentage}%`;
+        }).join(', ');
         
-        classes.forEach((classe, i) => {
-            // Formatação dos valores
-            const formatMin = window.formatNumber ? window.formatNumber(classe.valorMin, 1) : classe.valorMin.toFixed(1);
-            const formatMax = window.formatNumber ? window.formatNumber(classe.valorMax, 1) : classe.valorMax.toFixed(1);
-            
-            // Calcular quantos imóveis estão realmente nesta classe
-            const imoveisNaClasse = dadosFiltrados.filter(item => {
-                const valor = item.properties?.[currentField] || 0;
-                return valor >= classe.valorMin && valor <= classe.valorMax;
-            }).length;
-            
-            // Calcular percentual
-            const percentual = dadosFiltrados.length > 0 ? (imoveisNaClasse / dadosFiltrados.length * 100) : 0;
-            
-            classesHtml += `
-                <div style="
-                    display: flex;
-                    align-items: center;
-                    margin-bottom: 6px;
-                    font-size: 11px;
-                    background: ${i % 2 === 0 ? '#f9f9f9' : 'white'};
-                    padding: 4px;
-                    border-radius: 3px;
-                ">
-                    <div style="
-                        width: 20px;
-                        height: 15px;
-                        background-color: ${classe.cor};
-                        border: 1px solid #666;
-                        margin-right: 8px;
-                        flex-shrink: 0;
-                    "></div>
-                    <div style="flex-grow: 1;">
-                        <div style="font-weight: bold; color: #333; font-size: 11px;">
-                            ${formatMin} - ${formatMax}
-                        </div>
-                        <div style="color: #666; font-size: 10px;">
-                            ${imoveisNaClasse.toLocaleString('pt-BR')} imóveis (${percentual.toFixed(1)}%)
-                        </div>
-                    </div>
-                </div>
-            `;
-        });
-        
-        classesHtml += '</div>';
-        div.innerHTML += classesHtml;
-        
-        // Calcular estatísticas
-        const totalValidos = dadosFiltrados.filter(item => (item.properties?.[currentField] || 0) > 0).length;
-        const mediaItensClasse = totalValidos / classes.length;
-        
-        // Informações extras estilo QGIS
+        // Container do gradiente
         div.innerHTML += `
             <div style="
-                margin-top: 12px;
-                padding-top: 10px;
-                border-top: 1px solid #ddd;
-                font-size: 10px;
-                color: #666;
-                background: #f8f9fa;
-                padding: 8px;
+                height: 20px;
+                background: linear-gradient(to right, ${gradientStops});
+                border: 1px solid #ccc;
                 border-radius: 4px;
+                margin-bottom: 8px;
+            "></div>
+        `;
+        
+        // Labels de valores
+        const formatMin = window.formatNumber ? window.formatNumber(minValue, 1) : minValue.toFixed(1);
+        const formatMax = window.formatNumber ? window.formatNumber(maxValue, 1) : maxValue.toFixed(1);
+        const formatMid = window.formatNumber ? window.formatNumber((minValue + maxValue) / 2, 1) : ((minValue + maxValue) / 2).toFixed(1);
+        
+        div.innerHTML += `
+            <div style="
+                display: flex;
+                justify-content: space-between;
+                font-size: 11px;
+                color: #666;
+                margin-top: 5px;
             ">
-                <div style="display: flex; justify-content: space-between; margin-bottom: 3px;">
-                    <span><strong>Método:</strong> Contagem Igual</span>
-                    <span><strong>Classes:</strong> ${classes.length}</span>
-                </div>
-                <div style="display: flex; justify-content: space-between; margin-bottom: 3px;">
-                    <span><strong>Total:</strong> ${dadosFiltrados.length.toLocaleString('pt-BR')}</span>
-                    <span><strong>Válidos:</strong> ${totalValidos.toLocaleString('pt-BR')}</span>
-                </div>
-                <div style="display: flex; justify-content: space-between; margin-bottom: 3px;">
-                    <span><strong>Média/Classe:</strong> ${mediaItensClasse.toFixed(0)}</span>
-                    <span><strong>Campo:</strong> ${currentField}</span>
-                </div>
-                <div style="text-align: center; color: #888; font-size: 9px; margin-top: 6px; font-style: italic;">
-                    📊 Cada classe representa ~${(100/classes.length).toFixed(1)}% dos dados
-                </div>
+                <span>${formatMin}</span>
+                <span>${formatMid}</span>
+                <span>${formatMax}</span>
+            </div>
+        `;
+        
+        // Adicionar contagem de polígonos
+        const dadosFiltrados = window.filtrarDados ? window.filtrarDados() : [];
+        div.innerHTML += `
+            <div style="
+                margin-top: 10px;
+                padding-top: 8px;
+                border-top: 1px solid #eee;
+                font-size: 11px;
+                color: #888;
+                text-align: center;
+            ">
+                ${formatNumberWithDots(dadosFiltrados.length, 0)} imóveis exibidos
             </div>
         `;
         
@@ -307,55 +152,11 @@ function createMapLegend(currentField, minValue, maxValue) {
     };
     
     legendControl.addTo(mapInstance);
-    
-    // Armazenar classes para uso na coloração
-    window.classesAtuais = classes;
-    
-    console.log(`🎨 Legenda por Contagem Igual criada para ${title} - ${classes.length} classes`);
-    console.log(`📊 Distribuição equilibrada: ~${(100/classes.length).toFixed(1)}% por classe`);
+    console.log(`🎨 Legenda gradiente criada para ${title}`);
 }
 
 // ================================
-// FUNÇÃO MELHORADA PARA OBTER COR BASEADA EM QUANTIS
-// ================================
-function getGradientColorByQuantiles(valor, currentField) {
-    // Obter dados atuais
-    const dadosFiltrados = window.filtrarDados ? window.filtrarDados() : window.dadosCompletos;
-    const valoresReais = dadosFiltrados
-        .map(item => item.properties?.[currentField] || 0)
-        .filter(val => val > 0)
-        .sort((a, b) => a - b);
-    
-    if (valoresReais.length === 0) {
-        return GRADIENT_COLORS[0];
-    }
-    
-    // Calcular quantis
-    const numClasses = 6;
-    const quantis = [];
-    
-    for (let i = 0; i <= numClasses; i++) {
-        const percentil = i / numClasses;
-        const index = Math.floor(percentil * (valoresReais.length - 1));
-        quantis.push(valoresReais[index]);
-    }
-    
-    // Encontrar em qual classe o valor se encaixa
-    let classeIndex = 0;
-    for (let i = 0; i < numClasses; i++) {
-        if (valor >= quantis[i] && valor <= quantis[i + 1]) {
-            classeIndex = i;
-            break;
-        }
-    }
-    
-    // Mapear classe para cor
-    const corIndex = Math.floor(classeIndex * (GRADIENT_COLORS.length - 1) / (numClasses - 1));
-    return GRADIENT_COLORS[corIndex];
-}
-
-// ================================
-// FUNÇÃO PARA OBTER COR DO GRADIENTE MELHORADA (7 CORES)
+// FUNÇÃO PARA OBTER COR DO GRADIENTE (LARANJA → VERMELHO)
 // ================================
 function getGradientColor(valor, minValue, maxValue) {
     if (maxValue === minValue) {
@@ -543,11 +344,11 @@ function addPolygonsToMap() {
     // Processar cada item válido
     dadosValidosParaMapa.forEach((item, index) => {
         try {
-            // Calcular cor usando quantis
+            // Calcular cor
             const fieldValue = item.properties?.[currentField] || 0;
-            const color = getGradientColorByQuantiles(fieldValue, currentField);
+            const color = getGradientColor(fieldValue, minValue, maxValue);
 
-            // Criar polígono com gradiente melhorado
+            // Criar polígono com gradiente Laranja → Vermelho
             const polygon = L.polygon(item.coordinates, {
                 color: color,
                 weight: 0,
@@ -916,8 +717,7 @@ window.testeRapidoMapa = testeRapidoMapa;
 window.verificarDadosValidosMapa = verificarDadosValidosMapa;
 window.createPopupContentFixed = createPopupContentFixed;
 
-console.log('✅ MAP.JS CORRIGIDO COMPLETO - Sistema de cores melhorado!');
-console.log('🎨 Paleta de 7 cores: Azul → Cinza → Laranja → Vermelho');
+console.log('✅ MAP.JS CORRIGIDO COMPLETO - Popup e gradiente conforme especificação!');
 console.log('🧪 Execute testeRapidoMapa() para teste');
 console.log('🔍 Execute verificarDadosValidosMapa() para diagnóstico');
 console.log('🔍 Execute diagnosticMap() para verificação geral');
