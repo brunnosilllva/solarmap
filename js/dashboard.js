@@ -601,11 +601,126 @@ function updateRelatorio(imovel = null) {
     if (imovel) {
         const props = imovel.properties;
         tituloEl.textContent = `📊 Relatório - Imóvel ${imovel.id}`;
-        const textoRelatorio = `O imóvel selecionado no Bairro ${props.bairro}, localizado nas coordenadas (${imovel.centroid[0].toFixed(6)}, ${imovel.centroid[1].toFixed(6)}), possui ${formatNumber(props.area_edificacao, 2)} m², com Quantidade de Radiação Máxima Solar nos 12 meses do ano de ${formatNumber(props.radiacao_max, 2)} kW/m², apresentando uma Capacidade de Produção de energia de ${formatNumber(props.capacidade_por_m2, 2)} kW por m², com produção diária de ${formatNumber(props.capacidade_placas_dia, 2)} kWh e produção média mensal de ${formatNumber(props.capacidade_placas_mes, 2)} kWh.`;
-        conteudoEl.innerHTML = `<p style="text-align: justify; line-height: 1.6;">${textoRelatorio}</p>`;
+        
+        // NOVO TEXTO CORRIDO DETALHADO
+        const textoRelatorio = `O imóvel selecionado no Bairro ${props.bairro}, localizado nas coordenadas (${imovel.centroid[0].toFixed(6)}, ${imovel.centroid[1].toFixed(6)}), possui ${formatNumber(props.area_edificacao, 2)} m², com Quantidade de Radiação Máxima Solar nos 12 meses do ano de ${formatNumber(props.radiacao_max, 2)} kW/m², apresentando uma Capacidade de Produção de energia de ${formatNumber(props.capacidade_por_m2, 2)} kW por m², com produção diária de ${formatNumber(props.capacidade_placas_dia, 2)} kWh e produção média mensal de ${formatNumber(props.capacidade_placas_mes, 2)} kWh. Para essa produção estima-se a necessidade de ${formatNumber(props.quantidade_placas, 0)} placas fotovoltaicas. O imóvel apresenta um potencial médio de geração de ${formatNumber(props.potencial_medio_dia, 2)} kW.dia/m² e está localizado em uma região com renda total de R$ ${formatNumber(props.renda_total, 2)}, renda per capita de R$ ${formatNumber(props.renda_per_capita, 2)} e renda domiciliar per capita de R$ ${formatNumber(props.renda_domiciliar_per_capita, 2)}.`;
+        
+        conteudoEl.innerHTML = `
+            <div style="
+                background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+                padding: 20px;
+                border-radius: 10px;
+                border-left: 4px solid #28a745;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            ">
+                <div style="
+                    display: flex;
+                    align-items: center;
+                    margin-bottom: 15px;
+                    padding-bottom: 10px;
+                    border-bottom: 2px solid #dee2e6;
+                ">
+                    <div style="
+                        background: #28a745;
+                        color: white;
+                        padding: 8px 12px;
+                        border-radius: 6px;
+                        font-weight: bold;
+                        margin-right: 10px;
+                        font-size: 14px;
+                    ">
+                        📊 ANÁLISE TÉCNICA
+                    </div>
+                    <div style="
+                        color: #6c757d;
+                        font-size: 12px;
+                        font-style: italic;
+                    ">
+                        Relatório detalhado de potencial solar e socioeconômico
+                    </div>
+                </div>
+                
+                <p style="
+                    text-align: justify;
+                    line-height: 1.8;
+                    font-size: 14px;
+                    color: #343a40;
+                    margin: 0;
+                    text-indent: 20px;
+                ">
+                    ${textoRelatorio}
+                </p>
+                
+                <div style="
+                    margin-top: 15px;
+                    padding-top: 10px;
+                    border-top: 1px solid #dee2e6;
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    font-size: 11px;
+                    color: #6c757d;
+                ">
+                    <span>
+                        📍 <strong>Coordenadas:</strong> ${imovel.centroid[0].toFixed(6)}, ${imovel.centroid[1].toFixed(6)}
+                    </span>
+                    <span>
+                        🏠 <strong>ID:</strong> ${imovel.id}
+                    </span>
+                    <span>
+                        📅 <strong>Gerado em:</strong> ${new Date().toLocaleDateString('pt-BR')}
+                    </span>
+                </div>
+            </div>
+        `;
     } else {
         tituloEl.textContent = '📊 Relatório do Imóvel';
-        conteudoEl.innerHTML = `<p>Selecione um imóvel no mapa para ver o relatório detalhado.</p>`;
+        conteudoEl.innerHTML = `
+            <div style="
+                background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+                padding: 30px;
+                border-radius: 10px;
+                border: 2px dashed #dee2e6;
+                text-align: center;
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            ">
+                <div style="
+                    font-size: 48px;
+                    margin-bottom: 15px;
+                    color: #6c757d;
+                ">
+                    📊
+                </div>
+                <h3 style="
+                    color: #495057;
+                    margin-bottom: 10px;
+                    font-size: 18px;
+                ">
+                    Relatório Técnico Solar
+                </h3>
+                <p style="
+                    color: #6c757d;
+                    font-size: 14px;
+                    margin-bottom: 20px;
+                    line-height: 1.6;
+                ">
+                    Selecione um imóvel no mapa para gerar um relatório detalhado<br>
+                    contendo análise de potencial solar e dados socioeconômicos.
+                </p>
+                <div style="
+                    background: #e7f3ff;
+                    padding: 10px;
+                    border-radius: 6px;
+                    border-left: 3px solid #0066cc;
+                    font-size: 12px;
+                    color: #0066cc;
+                    font-style: italic;
+                ">
+                    💡 Dica: Clique em qualquer polígono azul no mapa para começar
+                </div>
+            </div>
+        `;
     }
 }
 
