@@ -256,14 +256,14 @@ function applyFilters() {
     // NOVO: Atualizar cards com estatísticas do bairro selecionado
     updateSummaryCardsWithFilters();
 
-    // Atualizar elementos do dashboard
-    if (window.updateSummaryCards) {
-        try {
-            window.updateSummaryCards();
-        } catch (error) {
-            console.error('❌ Erro ao atualizar summary cards:', error);
-        }
-    }
+    // CORREÇÃO: Não chamar updateSummaryCards do dashboard, pois sobrescreve nossos filtros
+    // if (window.updateSummaryCards) {
+    //     try {
+    //         window.updateSummaryCards();
+    //     } catch (error) {
+    //         console.error('❌ Erro ao atualizar summary cards:', error);
+    //     }
+    // }
 
     // Atualizar mapa - NOVA IMPLEMENTAÇÃO
     filterMapPolygons();
@@ -280,18 +280,51 @@ function applyFilters() {
 }
 
 // ================================
-// ATUALIZAR CARDS COM FILTROS - NOVA FUNÇÃO
+// ATUALIZAR CARDS COM FILTROS - FUNÇÃO CORRIGIDA
 // ================================
 function updateSummaryCardsWithFilters() {
     console.log('📊 Atualizando cards com filtros aplicados...');
     
-    if (!window.filtrarDados) {
-        console.warn('⚠️ Função filtrarDados não disponível');
+    // Verificar se temos dados e função de filtro
+    if (!window.dadosCompletos || !window.dadosCompletos.length) {
+        console.warn('⚠️ dadosCompletos não disponível');
         return;
     }
 
-    // Obter dados filtrados
-    const dadosFiltrados = window.filtrarDados();
+    // Obter dados filtrados usando a função do dashboard
+    let dadosFiltrados = [];
+    
+    if (window.filtrarDados && typeof window.filtrarDados === 'function') {
+        dadosFiltrados = window.filtrarDados();
+    } else {
+        // Fallback: filtrar manualmente
+        console.warn('⚠️ Função filtrarDados não disponível, filtrando manualmente');
+        dadosFiltrados = window.dadosCompletos.filter(item => {
+            if (!item || !item.properties) return false;
+            
+            const props = item.properties;
+            
+            // Filtro por bairro
+            if (window.filtrosAtivos?.bairros?.length > 0) {
+                if (!window.filtrosAtivos.bairros.includes(props.bairro)) {
+                    return false;
+                }
+            }
+            
+            // Filtro por valores
+            const valor = props[window.filtrosAtivos?.info || 'capacidade_por_m2'] || 0;
+            if (window.filtrosAtivos?.minValue !== null && valor < window.filtrosAtivos.minValue) {
+                return false;
+            }
+            if (window.filtrosAtivos?.maxValue !== null && valor > window.filtrosAtivos.maxValue) {
+                return false;
+            }
+            
+            return true;
+        });
+    }
+    
+    console.log(`📊 Dados filtrados: ${dadosFiltrados.length} de ${window.dadosCompletos.length}`);
     
     // Calcular estatísticas dos dados filtrados
     const totalImoveis = dadosFiltrados.length;
@@ -325,6 +358,24 @@ function updateSummaryCardsWithFilters() {
     console.log(`   📍 Total de Imóveis: ${totalImoveis.toLocaleString('pt-BR')}`);
     console.log(`   ⚡ Produção Total: ${producaoTotal.toFixed(2)} kW`);
     console.log(`   📈 Média por Imóvel: ${mediaPorImovel.toFixed(2)} kW`);
+    
+    // NOVA VERIFICAÇÃO: Se os valores ainda estão iguais aos totais, há problema
+    if (window.filtrosAtivos?.bairros?.length > 0 && totalImoveis === window.dadosCompletos.length) {
+        console.error('❌ PROBLEMA: Cards não foram filtrados corretamente!');
+        console.log('   Filtros ativos:', window.filtrosAtivos);
+        console.log('   Verificando alguns itens filtrados:');
+        
+        // Debug: mostrar amostra dos dados filtrados
+        const amostra = dadosFiltrados.slice(0, 3).map(item => ({
+            id: item.id,
+            bairro: item.properties?.bairro,
+            capacidade: item.properties?.capacidade_por_m2
+        }));
+        console.log('   Amostra filtrada:', amostra);
+        
+        // Debug: verificar se filtrosAtivos está correto
+        console.log('   window.filtrosAtivos:', window.filtrosAtivos);
+    }
 }
 
 // ================================
